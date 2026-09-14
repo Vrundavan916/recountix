@@ -59,14 +59,14 @@
 .rx-ad-media{display:none;position:absolute;inset:0;overflow:hidden;background:#eef5f2}
 .rx-ad-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
 .rx-ad-overlay-label{position:absolute;left:14px;top:14px;z-index:4;padding:5px 9px;border-radius:999px;background:rgba(9,49,39,.78);backdrop-filter:blur(8px);color:#fff;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 4px 14px rgba(0,0,0,.12)}
-.rx-ad-card.image-ready{display:block;aspect-ratio:4/1;min-height:0;background:#eef5f2}
+.rx-ad-card.image-ready{display:block;aspect-ratio:8/1;min-height:0;background:#eef5f2}
 .rx-ad-card.image-ready .rx-ad-media{display:block}
 .rx-ad-card.image-ready .rx-ad-copy,.rx-ad-card.image-ready .rx-ad-cta{display:none}
 .rx-ad-card.image-ready:hover .rx-ad-image{transform:scale(1.006)}
 .rx-ad-image{transition:transform .28s ease}
 .rx-ad-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.rx-ad-admin-grid .full{grid-column:1/-1}.rx-ad-admin-grid input,.rx-ad-admin-grid select,.rx-ad-admin-grid textarea{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #dce7e2;border-radius:10px;font:inherit;background:#fff}.rx-ad-admin-grid label{font-size:12px;font-weight:700;color:#52665f;display:block;margin-bottom:5px}.rx-ad-image-note{display:block;margin-top:6px;color:#81908b;font-size:11px;line-height:1.45}
-@media(max-width:900px){.rx-ad-card.image-ready{aspect-ratio:4/1}.rx-ad-copy{padding:19px 21px}.rx-ad-title{font-size:18px}.rx-ad-cta{margin-right:12px}}
-@media(max-width:700px){.rx-ad-card.image-ready{aspect-ratio:4/1;border-radius:14px}.rx-ad-overlay-label{left:9px;top:9px;font-size:8px;padding:4px 7px}.rx-ad-admin-grid{grid-template-columns:1fr}.rx-ad-admin-grid .full{grid-column:auto}}
+@media(max-width:900px){.rx-ad-card.image-ready{aspect-ratio:8/1}.rx-ad-copy{padding:19px 21px}.rx-ad-title{font-size:18px}.rx-ad-cta{margin-right:12px}}
+@media(max-width:700px){.rx-ad-card.image-ready{aspect-ratio:8/1;border-radius:14px}.rx-ad-overlay-label{left:9px;top:9px;font-size:8px;padding:4px 7px}.rx-ad-admin-grid{grid-template-columns:1fr}.rx-ad-admin-grid .full{grid-column:auto}}
 
 
 
@@ -87,3 +87,108 @@
 section[data-rc-compact="1"]{overflow:visible}section[data-rc-compact="1"]>.summary-bar,section[data-rc-compact="1"]>.vo-today-head{margin-bottom:0}
 @keyframes rcReveal{from{opacity:.35;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media(max-width:700px){.rc-view-details{padding:8px 10px}.rc-compact-actions{margin-left:8px}.rc-compact-body{padding-top:10px}}
+
+/* Rc.0.05 — clean dashboard navigation */
+.rx-dashboard-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 4px}
+.rx-nav-card{display:flex;align-items:center;gap:12px;min-height:74px;padding:14px 16px;border:1px solid rgba(15,94,74,.12);border-radius:16px;background:rgba(255,255,255,.88);box-shadow:0 8px 24px rgba(15,23,42,.05);text-decoration:none;color:inherit;transition:.2s ease}
+.rx-nav-card:hover{transform:translateY(-2px);border-color:rgba(15,94,74,.28);box-shadow:0 12px 28px rgba(15,94,74,.09)}
+.rx-nav-card>i:first-child{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(15,94,74,.08);color:#0f5e4a}
+.rx-nav-card span{display:flex;flex-direction:column;gap:3px;flex:1}.rx-nav-card b{font-size:13px}.rx-nav-card small{font-size:11px;color:#718096}.rx-nav-card>i:last-child{font-size:11px;color:#8aa69e}
+@media(max-width:760px){.rx-dashboard-nav{grid-template-columns:1fr}.rx-nav-card{min-height:64px}}
+
+/* =========================================================
+   Recountix Rc.0.05 — Professional Wave Texture Background
+   Subtle layered texture across the application; CSS-only.
+   ========================================================= */
+:root{
+  --rx-wave-deep: rgba(7,63,54,.050);
+  --rx-wave-green: rgba(22,184,122,.040);
+  --rx-wave-gold: rgba(196,153,57,.028);
+}
+html{background:#f4f8f6;}
+body{
+  position:relative;
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 12% 5%, rgba(22,184,122,.055), transparent 28%),
+    radial-gradient(circle at 88% 15%, rgba(196,153,57,.040), transparent 25%),
+    linear-gradient(180deg,#f8fbfa 0%,#f3f7f5 48%,#f7faf8 100%) !important;
+  background-attachment:fixed !important;
+}
+body::before,
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+}
+body::before{
+  opacity:.92;
+  background:
+    repeating-radial-gradient(
+      ellipse at -8% 34%,
+      transparent 0 35px,
+      var(--rx-wave-deep) 36px 37px,
+      transparent 38px 54px
+    ),
+    repeating-radial-gradient(
+      ellipse at 108% 72%,
+      transparent 0 44px,
+      var(--rx-wave-green) 45px 46px,
+      transparent 47px 66px
+    );
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.32) 52%,rgba(0,0,0,.65));
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.32) 52%,rgba(0,0,0,.65));
+}
+body::after{
+  opacity:.58;
+  background:
+    linear-gradient(118deg,transparent 0 19%,var(--rx-wave-gold) 19.2% 19.35%,transparent 19.55% 100%),
+    linear-gradient(118deg,transparent 0 73%,rgba(11,107,89,.025) 73.15% 73.3%,transparent 73.5% 100%);
+}
+/* Keep every interactive/layout layer above the decorative texture. */
+body > *{position:relative;z-index:1;}
+.sidebar{z-index:10020!important;}
+.sidebar-overlay{z-index:10010!important;}
+.vo-profile-backdrop,.modal,.modal-backdrop{z-index:20050!important;}
+/* Glass-like premium surfaces without sacrificing readability. */
+.topbar,.header-bar,.page-header,
+.dashboard-grid .card,.analytics-panel,.vo-command-strip,.vo-today-panel,
+.content-box,.table-section,.rx-nav-card,.rx-ad-card{
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+/* Very subtle wave accent inside large content areas. */
+.main-content,.content,.page-content,.dashboard-container{
+  background-color:transparent!important;
+}
+@media(max-width:700px){
+  body::before{opacity:.62;}
+  body::after{opacity:.36;}
+}
+
+/* =========================================================
+   Recountix Rc.0.05 — Bulletproof Dashboard Date & Time
+   ========================================================= */
+.rx-live-clock{
+  display:flex!important;
+  flex-direction:column;
+  justify-content:center;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.rx-clock-date,.rx-clock-time{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  white-space:nowrap;
+}
+.rx-clock-glow{
+  animation:rxClockGlow 2.8s ease-in-out infinite;
+}
+@keyframes rxClockGlow{
+  0%,100%{opacity:.58;transform:translateY(-50%) scale(.92)}
+  50%{opacity:.95;transform:translateY(-50%) scale(1.08)}
+}
+@media (prefers-reduced-motion:reduce){.rx-clock-glow{animation:none!important}}
