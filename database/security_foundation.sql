@@ -999,3 +999,32 @@ revoke all on function public.app_records(text,text,jsonb) from public;
 revoke all on function public.app_bulk_customers(text,jsonb) from public;
 grant execute on function public.app_records(text,text,jsonb) to anon,authenticated;
 grant execute on function public.app_bulk_customers(text,jsonb) to anon,authenticated;
+
+
+create or replace function public.app_mark_reminder(p_token text,p_customer_id uuid,p_next_date date)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid;
+begin
+ select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+ if not found then raise exception 'invalid_session'; end if;
+ update public.customers set last_reminder_at=now(),next_reminder_date=p_next_date,updated_at=now()
+  where id=p_customer_id and shop_id=v_shop;
+end $$;
+
+create or replace function public.app_set_agent_credentials(p_token text,p_user_id uuid,p_code text,p_pin text)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype;
+begin
+ select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+ if not found or v_user.role<>'admin' then raise exception 'access_denied'; end if;
+ if coalesce(p_code,'') !~ '^[A-Za-z0-9_-]{3,30}$' or length(coalesce(p_pin,''))<6 then raise exception 'invalid_credentials'; end if;
+ update public.users set agent_code=upper(trim(p_code)),field_pin=crypt(p_pin,gen_salt('bf',12)),is_field_agent=true
+  where id=p_user_id and shop_id=v_user.shop_id and role='user';
+ if not found then raise exception 'user_not_found'; end if;
+end $$;
+revoke all on function public.app_mark_reminder(text,uuid,date) from public;
+revoke all on function public.app_set_agent_credentials(text,uuid,text,text) from public;
+grant execute on function public.app_mark_reminder(text,uuid,date) to anon,authenticated;
+grant execute on function public.app_set_agent_credentials(text,uuid,text,text) to anon,authenticated;
