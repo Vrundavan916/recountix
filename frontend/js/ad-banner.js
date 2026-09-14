@@ -110,7 +110,7 @@
         const candidates=imageCandidates(ad.image_url);
         // Permanent local fallback for the standard Recountix dashboard campaign.
         // This keeps the banner visible even when a saved external/old URL is broken.
-        const localFallback = new URL('assets/ads/recovery-banner.jpg', document.baseURI).href;
+        const localFallback = new URL('assets/ads/recovery-banner.png', document.baseURI).href;
         if(!candidates.includes(localFallback)) candidates.push(localFallback);
         loadWithFallback(
           img,
