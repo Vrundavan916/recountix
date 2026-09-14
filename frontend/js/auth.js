@@ -95,8 +95,7 @@ async function sbLogin(username, password) {
                     const { data: shops } = await sb.rpc("app_get_shops", { p_token: rpcData.token });
                     shop = (shops || []).find(s => String(s.id) === String(u.shop_id)) || (shops && shops[0]) || null;
                 } catch (e) {
-                    const { data: s } = await sb.from("shops").select("*").eq("id", u.shop_id).maybeSingle();
-                    shop = s;
+                    throw new Error("Secure shop verification failed");
                 }
             }
 
