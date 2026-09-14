@@ -241,3 +241,112 @@ revoke all on function public.app_field_checkin(text,uuid,text,text,numeric,nume
 grant execute on function public.app_field_login(text,text) to anon,authenticated;
 grant execute on function public.app_field_customers(text) to anon,authenticated;
 grant execute on function public.app_field_checkin(text,uuid,text,text,numeric,numeric) to anon,authenticated;
+
+
+-- Maintenance and advertisement authorization.
+create or replace function public.app_maintenance_status()
+returns jsonb language sql security definer set search_path=public,pg_temp as $$
+  select coalesce((select jsonb_build_object(
+    'enabled',coalesce(maintenance_mode,false),
+    'message',coalesce(maintenance_message,''))
+    from public.system_config where id=1),
+    jsonb_build_object('enabled',false,'message',''))
+$$;
+
+create or replace function public.app_set_maintenance(p_token text,p_enabled boolean,p_message text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_role text;
+begin
+  select u.role into v_role from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+     and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
+  if v_role is distinct from 'super_admin' then raise exception 'access_denied'; end if;
+  insert into public.system_config(id,maintenance_mode,maintenance_message,updated_at)
+  values(1,coalesce(p_enabled,false),left(coalesce(p_message,''),500),now())
+  on conflict(id) do update set maintenance_mode=excluded.maintenance_mode,
+    maintenance_message=excluded.maintenance_message,updated_at=now();
+  return jsonb_build_object('ok',true);
+end $$;
+
+create or replace function public.app_active_ads(p_token text)
+returns setof public.ads language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+     and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
+  if not found then raise exception 'invalid_session'; end if;
+  return query select a.* from public.ads a where a.is_active=true
+    and a.start_at<=now() and a.end_at>=now()
+    and (a.target_type='all' or (a.target_type='shop' and a.target_shop_id=v_shop))
+    order by a.created_at desc;
+end $$;
+
+create or replace function public.app_manage_ads(p_token text,p_action text,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_role text; v_id uuid; v_row public.ads%rowtype;
+begin
+  select u.role into v_role from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+     and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
+  if v_role is distinct from 'super_admin' then raise exception 'access_denied'; end if;
+  if p_action='list' then
+    return coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at desc) from public.ads a),'[]'::jsonb);
+  elsif p_action='delete' then
+    v_id:=(p_payload->>'id')::uuid; delete from public.ads where id=v_id;
+    return jsonb_build_object('ok',true);
+  elsif p_action in ('create','update') then
+    if length(trim(coalesce(p_payload->>'title','')))<1 then raise exception 'title_required'; end if;
+    if (p_payload->>'end_at')::timestamptz <= (p_payload->>'start_at')::timestamptz then
+      raise exception 'invalid_schedule';
+    end if;
+    if p_action='create' then
+      insert into public.ads(title,description,image_url,link_url,cta_text,target_type,target_shop_id,start_at,end_at,is_active)
+      values(left(p_payload->>'title',150),left(coalesce(p_payload->>'description',''),500),
+        nullif(p_payload->>'image_url',''),nullif(p_payload->>'link_url',''),
+        left(coalesce(p_payload->>'cta_text','Learn More'),50),coalesce(p_payload->>'target_type','all'),
+        nullif(p_payload->>'target_shop_id','')::uuid,(p_payload->>'start_at')::timestamptz,
+        (p_payload->>'end_at')::timestamptz,coalesce((p_payload->>'is_active')::boolean,false))
+      returning * into v_row;
+    else
+      v_id:=(p_payload->>'id')::uuid;
+      update public.ads set title=left(p_payload->>'title',150),
+        description=left(coalesce(p_payload->>'description',''),500),
+        image_url=nullif(p_payload->>'image_url',''),link_url=nullif(p_payload->>'link_url',''),
+        cta_text=left(coalesce(p_payload->>'cta_text','Learn More'),50),
+        target_type=coalesce(p_payload->>'target_type','all'),
+        target_shop_id=nullif(p_payload->>'target_shop_id','')::uuid,
+        start_at=(p_payload->>'start_at')::timestamptz,end_at=(p_payload->>'end_at')::timestamptz,
+        is_active=coalesce((p_payload->>'is_active')::boolean,false)
+       where id=v_id returning * into v_row;
+    end if;
+    return to_jsonb(v_row);
+  end if;
+  raise exception 'invalid_action';
+end $$;
+
+create or replace function public.app_ad_click(p_token text,p_ad_id uuid)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+  if not exists(select 1 from public.app_sessions s where
+    s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now())
+    then raise exception 'invalid_session'; end if;
+  update public.ads set clicks=clicks+1 where id=p_ad_id and is_active=true
+    and start_at<=now() and end_at>=now();
+end $$;
+
+revoke all on function public.app_maintenance_status() from public;
+revoke all on function public.app_set_maintenance(text,boolean,text) from public;
+revoke all on function public.app_active_ads(text) from public;
+revoke all on function public.app_manage_ads(text,text,jsonb) from public;
+revoke all on function public.app_ad_click(text,uuid) from public;
+grant execute on function public.app_maintenance_status() to anon,authenticated;
+grant execute on function public.app_set_maintenance(text,boolean,text) to anon,authenticated;
+grant execute on function public.app_active_ads(text) to anon,authenticated;
+grant execute on function public.app_manage_ads(text,text,jsonb) to anon,authenticated;
+grant execute on function public.app_ad_click(text,uuid) to anon,authenticated;
+
+drop policy if exists "ads_public_manage" on public.ads;
+drop policy if exists "ads_public_read" on public.ads;
+revoke all on public.ads from anon,authenticated;
+revoke all on public.system_config from anon,authenticated;
