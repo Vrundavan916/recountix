@@ -144,23 +144,54 @@ function renderCompaniesTable() {
     }).join("") || `<tr><td colspan="8" style="text-align:center;color:#94a3b8;">No shops yet. Click "Add Jewellery" to create one.</td></tr>`;
 }
 
+function setShopFieldValue(id, value) {
+    const field = document.getElementById(id);
+    if (field) field.value = value;
+}
+
+function showShopModal() {
+    const modal = document.getElementById("shopModal");
+    if (!modal) {
+        console.error("Shop modal element was not found.");
+        return;
+    }
+
+    // Loaded themes contain several modal rules. Important inline values make
+    // opening reliable on touch devices while retaining the existing design.
+    modal.style.setProperty("display", "flex", "important");
+    modal.style.setProperty("align-items", "center", "important");
+    modal.style.setProperty("justify-content", "center", "important");
+    modal.style.setProperty("z-index", "20050", "important");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("shop-modal-open");
+
+    const firstField = document.getElementById("shopName");
+    if (firstField) window.setTimeout(() => firstField.focus(), 0);
+}
+
 function openAddShopModal() {
-    document.getElementById("shopModalTitle").innerText = "Add Jewellery Shop";
-    document.getElementById("shopId").value = "";
-    document.getElementById("shopName").value = "";
-    document.getElementById("shopCode").value = "";
-    document.getElementById("shopContact").value = "";
-    document.getElementById("shopEmail").value = "";
-    document.getElementById("shopAddress").value = "";
-    document.getElementById("shopPlan").value = "Basic";
-    document.getElementById("shopLicenseExpiry").value = "";
-    document.getElementById("shopMaxUsers").value = "5";
-    document.getElementById("shopAdminUsername").value = "";
-    document.getElementById("shopAdminPassword").value = "";
-    document.getElementById("shopAdminName").value = "";
-    document.getElementById("newShopAdminBlock").style.display = "block";
-    document.getElementById("shopCode").disabled = false;
-    document.getElementById("shopModal").style.display = "block";
+    const title = document.getElementById("shopModalTitle");
+    if (title) title.innerText = "Add Jewellery Shop";
+
+    setShopFieldValue("shopId", "");
+    setShopFieldValue("shopName", "");
+    setShopFieldValue("shopCode", "");
+    setShopFieldValue("shopContact", "");
+    setShopFieldValue("shopEmail", "");
+    setShopFieldValue("shopAddress", "");
+    setShopFieldValue("shopPlan", "Basic");
+    setShopFieldValue("shopLicenseExpiry", "");
+    setShopFieldValue("shopMaxUsers", "5");
+    setShopFieldValue("shopAdminUsername", "");
+    setShopFieldValue("shopAdminPassword", "");
+    setShopFieldValue("shopAdminName", "");
+
+    const adminBlock = document.getElementById("newShopAdminBlock");
+    if (adminBlock) adminBlock.style.display = "block";
+    const codeField = document.getElementById("shopCode");
+    if (codeField) codeField.disabled = false;
+
+    showShopModal();
 }
 
 function openEditShopModal(shopId) {
@@ -179,11 +210,15 @@ function openEditShopModal(shopId) {
     document.getElementById("shopLicenseExpiry").value = shop.license_expiry || "";
     document.getElementById("shopMaxUsers").value = shop.max_users || 5;
     document.getElementById("newShopAdminBlock").style.display = "none";
-    document.getElementById("shopModal").style.display = "block";
+    showShopModal();
 }
 
 function closeShopModal() {
-    document.getElementById("shopModal").style.display = "none";
+    const modal = document.getElementById("shopModal");
+    if (!modal) return;
+    modal.style.setProperty("display", "none", "important");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("shop-modal-open");
 }
 
 async function saveShop() {
@@ -338,6 +373,31 @@ window.confirmRenewSubscription = confirmRenewSubscription;
 /* ================================
    INIT
 ================================ */
+document.addEventListener("DOMContentLoaded", function () {
+    const addButton = document.getElementById("addShopButton");
+    if (addButton && !addButton.dataset.modalBound) {
+        addButton.dataset.modalBound = "true";
+        addButton.addEventListener("click", function (event) {
+            event.preventDefault();
+            openAddShopModal();
+        });
+    }
+
+    const modal = document.getElementById("shopModal");
+    if (modal) {
+        modal.addEventListener("click", function (event) {
+            if (event.target === modal) closeShopModal();
+        });
+    }
+});
+
+document.addEventListener("keydown", function (event) {
+    const modal = document.getElementById("shopModal");
+    if (event.key === "Escape" && modal && modal.getAttribute("aria-hidden") === "false") {
+        closeShopModal();
+    }
+});
+
 window.addEventListener("load", async function () {
     // give script.js's checkLogin()/session boot a tick to run first
     setTimeout(async () => {
