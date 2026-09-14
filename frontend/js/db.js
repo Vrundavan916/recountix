@@ -188,52 +188,27 @@ async function sbUpdateOwnProfile(currentPassword,newUsername,newPassword,recove
 }
 window.sbUpdateOwnProfile=sbUpdateOwnProfile;
 
-async function sbGetSettings(shopId) {
-    const sb = getSupabase();
-    if (!shopId) return {};
-    const { data, error } = await sb.from("settings").select("*").eq("shop_id", shopId).maybeSingle();
-    if (error) throw error;
-    if (!data) return {};
-    let extra = data.extra || {};
-    if (typeof extra === "string") {
-        try { extra = JSON.parse(extra); } catch (e) { extra = {}; }
-    }
-    return {
-        company: data.company_name || "",
-        softwareName: data.software_name || "Recountix",
-        phone: data.phone || "",
-        email: data.email || "",
-        address: data.address || "",
-        logoDataUrl: data.logo_data_url || "",
-        recoveryEmail: data.recovery_email || "",
-        executives: Array.isArray(extra.executives) ? extra.executives : ["Mukesh", "Bharat", "Office"]
-    };
+async function sbGetSettings() {
+    const token=getSession().sessionToken;if(!token)return{};
+    const {data,error}=await getSupabase().rpc("app_get_settings",{p_token:token});
+    if(error)throw error;
+    const row=data||{};let extra=row.extra||{};
+    if(typeof extra==="string"){try{extra=JSON.parse(extra)}catch(e){extra={}}}
+    return {company:row.company_name||"",softwareName:"Recountix",phone:row.phone||"",
+      email:row.email||"",address:row.address||"",logoDataUrl:row.logo_data_url||"",
+      recoveryEmail:row.recovery_email||"",
+      executives:Array.isArray(extra.executives)?extra.executives:["Mukesh","Bharat","Office"]};
 }
 
-async function sbSaveSettings(shopId, settingsObj) {
-    const sb = getSupabase();
-    const execs = Array.isArray(settingsObj.executives)
-        ? settingsObj.executives
-        : ["Mukesh", "Bharat", "Office"];
-    const payload = {
-        shop_id: shopId,
-        company_name: settingsObj.company || "",
-        software_name: settingsObj.softwareName || "Recountix",
-        phone: settingsObj.phone || "",
-        email: settingsObj.email || "",
-        address: settingsObj.address || "",
-        logo_data_url: settingsObj.logoDataUrl || null,
-        recovery_email: settingsObj.recoveryEmail || "",
-        extra: { executives: execs },
-        updated_at: new Date().toISOString()
-    };
-    const { data, error } = await sb
-        .from("settings")
-        .upsert(payload, { onConflict: "shop_id" })
-        .select()
-        .single();
-    if (error) throw error;
-    return data;
+async function sbSaveSettings(shopId,settingsObj) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_save_settings",{p_token:token,p_payload:{
+      company:settingsObj.company||"",phone:settingsObj.phone||"",email:settingsObj.email||"",
+      address:settingsObj.address||"",logoDataUrl:settingsObj.logoDataUrl||"",
+      recoveryEmail:settingsObj.recoveryEmail||"",
+      executives:Array.isArray(settingsObj.executives)?settingsObj.executives:[]
+    }});
+    if(error)throw error;return data;
 }
 
 /* ---------- SYSTEM MAINTENANCE (Super Admin only) ---------- */
@@ -411,33 +386,19 @@ window.sbRegisterShop = sbRegisterShop;
 ========================================================== */
 
 /* ---------- AUDIT LOG ---------- */
-async function sbAddAuditLog(action, entityType, entityId, details, shopId) {
-    try {
-        const sb = getSupabase();
-        const session = getSession();
-        await sb.from("audit_log").insert({
-            shop_id: shopId || null,
-            user_id: session.userId || null,
-            username: session.username || "",
-            action: action,
-            entity_type: entityType || "",
-            entity_id: entityId ? String(entityId) : "",
-            details: details || ""
-        });
-    } catch (e) {
-        console.error("audit log failed", e);
-    }
+async function sbAddAuditLog(action,entityType,entityId,details) {
+    try{
+      const token=getSession().sessionToken;if(!token)return;
+      const {error}=await getSupabase().rpc("app_add_audit",{p_token:token,p_action:action||"",
+        p_entity_type:entityType||"",p_entity_id:entityId?String(entityId):"",p_details:details||""});
+      if(error)throw error;
+    }catch(e){console.error("audit log failed",e)}
 }
 
 async function sbGetAuditLog(limit) {
-    const sb = getSupabase();
-    const { data, error } = await sb
-        .from("audit_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(limit || 100);
-    if (error) throw error;
-    return data || [];
+    const token=getSession().sessionToken;if(!token)return[];
+    const {data,error}=await getSupabase().rpc("app_get_audit",{p_token:token,p_limit:limit||100});
+    if(error)throw error;return data||[];
 }
 
 /* ---------- SHOPS (full, incl. inactive) ---------- */
