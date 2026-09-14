@@ -588,3 +588,82 @@ grant execute on function public.app_get_users(text) to anon,authenticated;
 grant execute on function public.app_create_user(text,jsonb) to anon,authenticated;
 grant execute on function public.app_delete_user(text,uuid) to anon,authenticated;
 grant execute on function public.app_update_own_profile(text,text,text,text,text) to anon,authenticated;
+
+
+-- Tenant settings and append-only audit log.
+create or replace function public.app_get_settings(p_token text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null then return '{}'::jsonb; end if;
+  return coalesce((select jsonb_build_object('company_name',company_name,'software_name',software_name,
+    'phone',phone,'email',email,'address',address,'logo_data_url',logo_data_url,
+    'recovery_email',recovery_email,'extra',extra) from public.settings where shop_id=v_shop),'{}'::jsonb);
+end $$;
+
+create or replace function public.app_save_settings(p_token text,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_row public.settings%rowtype; v_extra jsonb;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_user.shop_id is null or v_user.role<>'admin' then raise exception 'access_denied'; end if;
+  v_extra:=jsonb_build_object('executives',
+    case when jsonb_typeof(p_payload->'executives')='array' then p_payload->'executives' else '[]'::jsonb end);
+  insert into public.settings(shop_id,company_name,software_name,phone,email,address,logo_data_url,recovery_email,extra,updated_at)
+  values(v_user.shop_id,left(coalesce(p_payload->>'company',''),150),'Recountix',
+    left(coalesce(p_payload->>'phone',''),30),left(coalesce(p_payload->>'email',''),254),
+    left(coalesce(p_payload->>'address',''),1000),nullif(p_payload->>'logoDataUrl',''),
+    left(coalesce(p_payload->>'recoveryEmail',''),254),v_extra,now())
+  on conflict(shop_id) do update set company_name=excluded.company_name,software_name='Recountix',
+    phone=excluded.phone,email=excluded.email,address=excluded.address,logo_data_url=excluded.logo_data_url,
+    recovery_email=excluded.recovery_email,extra=excluded.extra,updated_at=now()
+  returning * into v_row;
+  insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+  values(v_user.shop_id,v_user.id,v_user.username,'settings.update','settings',v_user.shop_id::text,'Shop settings updated');
+  return to_jsonb(v_row);
+end $$;
+
+create or replace function public.app_add_audit(p_token text,p_action text,p_entity_type text,p_entity_id text,p_details text)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found then raise exception 'invalid_session'; end if;
+  insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+  values(v_user.shop_id,v_user.id,v_user.username,left(coalesce(p_action,''),100),
+    left(coalesce(p_entity_type,''),100),left(coalesce(p_entity_id,''),100),left(coalesce(p_details,''),2000));
+end $$;
+
+create or replace function public.app_get_audit(p_token text,p_limit int default 100)
+returns setof public.audit_log language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_user.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  return query select * from public.audit_log a where
+    (v_user.role='super_admin' or a.shop_id=v_user.shop_id)
+    order by a.created_at desc limit greatest(1,least(coalesce(p_limit,100),500));
+end $$;
+
+revoke all on function public.app_get_settings(text) from public;
+revoke all on function public.app_save_settings(text,jsonb) from public;
+revoke all on function public.app_add_audit(text,text,text,text,text) from public;
+revoke all on function public.app_get_audit(text,int) from public;
+grant execute on function public.app_get_settings(text) to anon,authenticated;
+grant execute on function public.app_save_settings(text,jsonb) to anon,authenticated;
+grant execute on function public.app_add_audit(text,text,text,text,text) to anon,authenticated;
+grant execute on function public.app_get_audit(text,int) to anon,authenticated;
+
+drop policy if exists "public_all_settings" on public.settings;
+drop policy if exists "public_all_audit_log" on public.audit_log;
+revoke all on public.settings from anon,authenticated;
+revoke all on public.audit_log from anon,authenticated;
