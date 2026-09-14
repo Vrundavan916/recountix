@@ -492,3 +492,99 @@ grant execute on function public.app_delete_customer(text,uuid) to anon,authenti
 grant execute on function public.app_get_recoveries(text) to anon,authenticated;
 grant execute on function public.app_save_recovery(text,jsonb) to anon,authenticated;
 grant execute on function public.app_delete_recovery(text,uuid) to anon,authenticated;
+
+
+-- Secure user management and self-service credential changes.
+create or replace function public.app_get_users(p_token text)
+returns table(id uuid,username text,role text,shop_id uuid,display_name text,is_active boolean,
+  is_field_agent boolean,mobile text,agent_code text)
+language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_user.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  return query select u.id,u.username,u.role,u.shop_id,u.display_name,u.is_active,
+    coalesce(u.is_field_agent,false),u.mobile,u.agent_code from public.users u
+    where (v_user.role='super_admin' or u.shop_id=v_user.shop_id)
+    order by u.username;
+end $$;
+
+create or replace function public.app_create_user(p_token text,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_actor public.users%rowtype; v_role text; v_shop uuid; v_row public.users%rowtype; v_password text;
+begin
+  select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_actor.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  if coalesce(p_payload->>'username','') !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_username'; end if;
+  v_password:=coalesce(p_payload->>'password','');
+  if length(v_password)<8 then raise exception 'weak_password'; end if;
+  v_role:=coalesce(p_payload->>'role','user');
+  if v_role not in ('admin','user') then raise exception 'invalid_role'; end if;
+  if v_actor.role='admin' then v_role:='user'; v_shop:=v_actor.shop_id;
+  else v_shop:=nullif(p_payload->>'shop_id','')::uuid; end if;
+  if v_shop is null or not exists(select 1 from public.shops where id=v_shop) then raise exception 'invalid_shop'; end if;
+  insert into public.users(username,password,role,shop_id,display_name,is_active)
+  values(trim(p_payload->>'username'),crypt(v_password,gen_salt('bf',12)),v_role,v_shop,
+    left(coalesce(nullif(trim(p_payload->>'display_name'),''),trim(p_payload->>'username')),150),true)
+  returning * into v_row;
+  return jsonb_build_object('id',v_row.id,'username',v_row.username,'role',v_row.role,
+    'shop_id',v_row.shop_id,'display_name',v_row.display_name,'is_active',v_row.is_active);
+end $$;
+
+create or replace function public.app_delete_user(p_token text,p_user_id uuid)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_actor public.users%rowtype; v_target public.users%rowtype;
+begin
+  select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  select * into v_target from public.users where id=p_user_id;
+  if not found or v_actor.id=v_target.id or v_target.role='super_admin' then raise exception 'access_denied'; end if;
+  if v_actor.role='super_admin' or
+     (v_actor.role='admin' and v_target.role='user' and v_target.shop_id=v_actor.shop_id) then
+    delete from public.users where id=v_target.id;
+  else raise exception 'access_denied'; end if;
+end $$;
+
+create or replace function public.app_update_own_profile(
+  p_token text,p_current_password text,p_username text,p_new_password text,p_recovery_email text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_valid boolean:=false; v_new_username text;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found then raise exception 'invalid_session'; end if;
+  if v_user.password like '$2%' then v_valid:=crypt(p_current_password,v_user.password)=v_user.password;
+  elsif v_user.password ~ '^[a-f0-9]{64}$' then
+    v_valid:=encode(digest('VO-RM-v1-'||p_current_password,'sha256'),'hex')=lower(v_user.password);
+  end if;
+  if not v_valid then raise exception 'invalid_current_password'; end if;
+  v_new_username:=trim(coalesce(nullif(p_username,''),v_user.username));
+  if v_new_username !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_username'; end if;
+  if coalesce(p_new_password,'')<>'' and length(p_new_password)<8 then raise exception 'weak_password'; end if;
+  if coalesce(p_recovery_email,'')<>'' and p_recovery_email !~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
+    then raise exception 'invalid_email'; end if;
+  update public.users set username=v_new_username,
+    password=case when coalesce(p_new_password,'')<>'' then crypt(p_new_password,gen_salt('bf',12)) else password end,
+    recovery_email=nullif(lower(trim(coalesce(p_recovery_email,''))),'')
+   where id=v_user.id;
+  if coalesce(p_new_password,'')<>'' then
+    update public.app_sessions set revoked_at=now() where user_id=v_user.id
+      and token_hash<>encode(digest(p_token,'sha256'),'hex') and revoked_at is null;
+  end if;
+  return jsonb_build_object('ok',true,'username',v_new_username);
+end $$;
+
+revoke all on function public.app_get_users(text) from public;
+revoke all on function public.app_create_user(text,jsonb) from public;
+revoke all on function public.app_delete_user(text,uuid) from public;
+revoke all on function public.app_update_own_profile(text,text,text,text,text) from public;
+grant execute on function public.app_get_users(text) to anon,authenticated;
+grant execute on function public.app_create_user(text,jsonb) to anon,authenticated;
+grant execute on function public.app_delete_user(text,uuid) to anon,authenticated;
+grant execute on function public.app_update_own_profile(text,text,text,text,text) to anon,authenticated;
