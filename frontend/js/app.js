@@ -144,12 +144,12 @@ async function saveCustomer() {
     if (finalShopId) customer.shop_id = finalShopId;
 
     if (!finalShopId && !isSuperAdmin()) {
-        alert("No shop assigned. Contact Super Admin.");
+        alert("No business assigned. Contact Super Admin.");
         return;
     }
 
     if (isSuperAdmin() && !finalShopId) {
-        alert("Super Admin: login as a shop admin to add customers for a specific shop, or set shop context.");
+        alert("Super Admin: login as a Business Admin to manage customers for a specific business.");
         return;
     }
 
@@ -469,7 +469,7 @@ function buildWhatsAppReminderMessage(customer) {
     const session = (typeof getSession === "function") ? getSession() : {};
     const shopName = (session.shopName)
         || (typeof settings !== "undefined" && settings.company)
-        || "Jewellery Shop";
+        || "Business";
     const name = customer.name || "Customer";
     const outstanding = Number(customer.outstanding || 0).toLocaleString("en-IN");
     const bill = Number(customer.bill || 0).toLocaleString("en-IN");
@@ -485,7 +485,7 @@ function buildWhatsAppReminderMessage(customer) {
         "💰 *Pending Dues: ₹" + outstanding + "*",
         "",
         "Please make payment soon to clear your account.",
-        "After payment, contact the shop for receipt / update.",
+        "After payment, contact the business for receipt or account update.",
         phone ? ("📞 " + phone) : "",
         "",
         "Thank you,",
@@ -771,7 +771,7 @@ async function saveRecovery() {
     if (isSuperAdmin() && cust) finalShopId = cust.shop_id;
 
     if (!finalShopId) {
-        alert("No shop context.");
+        alert("No business context.");
         return;
     }
 
@@ -1277,19 +1277,19 @@ async function initUserShopSelector() {
 
     wrap.style.display = "block";
     select.disabled = true;
-    select.innerHTML = '<option value="">Loading shops...</option>';
+    select.innerHTML = '<option value="">Loading businesses...</option>';
     try {
         const shops = await sbGetShops();
-        select.innerHTML = '<option value="">Select Jewellery Shop</option>' +
+        select.innerHTML = '<option value="">Select Business</option>' +
             (shops || []).map((shop) =>
                 '<option value="' + escapeHtml(shop.id) + '">' +
-                escapeHtml(shop.name || shop.code || "Unnamed Shop") +
+                escapeHtml(shop.name || shop.code || "Unnamed Business") +
                 (shop.code ? " (" + escapeHtml(shop.code) + ")" : "") +
                 '</option>'
             ).join("");
     } catch (e) {
-        console.error("Unable to load shops for user creation", e);
-        select.innerHTML = '<option value="">Unable to load shops</option>';
+        console.error("Unable to load businesses for user creation", e);
+        select.innerHTML = '<option value="">Unable to load businesses</option>';
     } finally {
         select.disabled = false;
     }
@@ -1316,8 +1316,8 @@ async function addUser() {
         : currentShopId();
     if (!targetShopId) {
         alert(isSuperAdmin()
-            ? "Please select a Jewellery Shop before adding the user."
-            : "Shop ID is unavailable. Please log in again.");
+            ? "Please select a Business before adding the user."
+            : "Business assignment is unavailable. Please log in again.");
         return;
     }
 
@@ -1530,7 +1530,7 @@ async function addExecutive() {
     }
     const shopId = (typeof currentShopId === "function") ? currentShopId() : null;
     if (!shopId) {
-        alert("No shop context. Please login as Shop Admin.");
+        alert("No business context. Please login as Business Admin.");
         return;
     }
     if (typeof settings !== "object" || !settings) settings = {};
@@ -1557,7 +1557,7 @@ async function removeExecutive(index) {
     if (!confirm("Remove this executive?")) return;
     const shopId = (typeof currentShopId === "function") ? currentShopId() : null;
     if (!shopId) {
-        alert("No shop context.");
+        alert("No business context.");
         return;
     }
     if (!Array.isArray(settings.executives)) settings.executives = getExecutivesList();
@@ -1636,7 +1636,7 @@ function applyShopBranding() {
 
     // Reports print header
     const printName = document.getElementById("printCompanyName");
-    if (printName) printName.textContent = company || "Jewellery Shop";
+    if (printName) printName.textContent = company || "Business";
 
     const printLogo = document.querySelector(".print-header img");
     if (printLogo) {
@@ -2115,7 +2115,7 @@ async function savePtpForm() {
     const session = (typeof getSession === "function") ? getSession() : {};
     const shopId = session.shopId;
     if (!shopId) {
-        alert("No shop context. Login as shop admin/user.");
+        alert("No business context. Login as Business Admin or User.");
         return;
     }
 
@@ -2294,7 +2294,7 @@ async function openPaymentLinkForCustomer(index) {
     }
     let upiId = upi;
     if (!upiId) {
-        upiId = prompt("Enter the shop UPI ID (e.g. shop@oksbi):\n\n(You can save it in Settings)", "");
+        upiId = prompt("Enter the business UPI ID (e.g. shop@oksbi):\n\n(You can save it in Settings)", "");
         if (!upiId) return;
         try {
             if (typeof settings === "undefined" || !settings) window.settings = {};
@@ -2310,7 +2310,7 @@ async function openPaymentLinkForCustomer(index) {
     const text =
         "Namaste " + (c.name || "") + ",\n\n" +
         "Your outstanding balance: ₹" + amount.toLocaleString("en-IN") + "\n" +
-        "Shop: " + shopName + "\n" +
+        "Business: " + shopName + "\n" +
         "UPI: " + upiId.trim() + "\n\n" +
         "Please keep the receipt after making the payment.\n" +
         "Thank you.";
@@ -2515,7 +2515,7 @@ async function saveActivityForm() {
     if (!customerId) { alert("Please select a customer."); return; }
     if (!notes && !outcome) { alert("Please enter notes or an outcome."); return; }
     const session = getSession();
-    if (!session.shopId) { alert("Shop context is unavailable."); return; }
+    if (!session.shopId) { alert("Business context is unavailable."); return; }
 
     let gps_lat = null, gps_lng = null;
     if (document.getElementById("actCaptureGps") && document.getElementById("actCaptureGps").checked) {
@@ -2623,7 +2623,7 @@ function openLegalNoticeForCustomer(index) {
       <p>This is to inform you that an amount of <strong>₹${amt.toLocaleString("en-IN")}</strong>
       is outstanding against your account. Due / follow-up reference: <strong>${due}</strong>.</p>
       <p>You are requested to clear the dues within <strong>7 days</strong> of this notice.
-      Failing which, further recovery / legal steps may be initiated as per applicable law and shop policy.</p>
+      Failing which, further recovery / legal steps may be initiated as per applicable law and business policy.</p>
     </div>
     <p>This notice is issued without prejudice to other rights and remedies available.</p>
     <p style="margin-top:40px;">For ${shop}<br><br>__________________<br>Authorized Signatory</p>
@@ -2954,7 +2954,7 @@ async function fieldCheckIn() {
     const type = (document.getElementById("fieldCheckinType") || {}).value || "visit";
     if (!customerId) { alert("Please select a customer."); return; }
     const session = getSession();
-    if (!session.shopId) { alert("Shop login is required"); return; }
+    if (!session.shopId) { alert("Business login is required"); return; }
 
     let gps_lat = null, gps_lng = null;
     try {
@@ -3013,7 +3013,7 @@ async function loadEmployeeLinkGenerator() {
     if (!tbody) return;
     const session = getSession();
     if (!session.shopId && session.role !== "super_admin") {
-        tbody.innerHTML = "<tr><td colspan='5'>Shop login required</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='5'>Business login required</td></tr>";
         return;
     }
     tbody.innerHTML = "<tr><td colspan='5'>Loading…</td></tr>";
@@ -3263,9 +3263,9 @@ function enforceSuperAdminDataPrivacy() {
         banner = document.createElement("div");
         banner.id = "saPrivacyBanner";
         banner.style.cssText = "margin:12px 16px;padding:14px 16px;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;color:#92400e;font-size:14px;line-height:1.45;";
-        banner.innerHTML = "<strong>Privacy:</strong> Super Admin cannot view other jewellers' customer / recovery data. " +
-            "Use <a href='super-dashboard.html'>Super Dashboard</a> for shops only. " +
-            "Shop-level data is only for that shop's Admin / Staff login.";
+        banner.innerHTML = "<strong>Privacy:</strong> Super Admin cannot view other businesses' customer / recovery data. " +
+            "Use <a href='super-dashboard.html'>Super Dashboard</a> for businesses only. " +
+            "Shop-level data is only for that business's Admin / Staff login.";
         const main = document.querySelector(".main-content") || document.body;
         main.insertBefore(banner, main.firstChild);
     }
