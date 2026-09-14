@@ -788,20 +788,7 @@ async function saveRecovery() {
     try {
         await sbSaveRecovery(recovery, finalShopId);
 
-        if (cust && Number(amount.value || 0) > 0) {
-            const newOut = Math.max(0, Number(cust.outstanding || 0) - Number(amount.value));
-            await sbUpdateCustomerOutstanding(cust.id, newOut);
-        }
-        // Also append call note to customer remarks when amount is 0
-        if (cust && Number(amount.value || 0) === 0 && remarks && remarks.value.trim()) {
-            try {
-                const note = "[" + (date.value || "") + "] " + remarks.value.trim();
-                const prev = (cust.remarks || "").trim();
-                const merged = prev ? (prev + " | " + note) : note;
-                const sb = getSupabase();
-                await sb.from("customers").update({ remarks: merged }).eq("id", cust.id);
-            } catch (e) { console.warn("remarks update", e); }
-        }
+        // Outstanding and zero-payment notes are updated atomically by app_save_recovery.
 
         const paidAmt = Number(amount.value || 0);
         const newOutForReceipt = cust ? Math.max(0, Number(cust.outstanding || 0) - paidAmt) : 0;
@@ -874,13 +861,7 @@ async function deleteRecovery(index) {
 
     const item = recoveries[index];
     try {
-        if (item) {
-            const customer = (customers || []).find(c => String(c.id) === String(item.customerId));
-            if (customer) {
-                const newOut = Number(customer.outstanding || 0) + Number(item.amount || 0);
-                await sbUpdateCustomerOutstanding(customer.id, newOut);
-            }
-        }
+        // app_delete_recovery restores outstanding in the same database transaction.
         await sbDeleteRecovery(item.id);
         await reloadAllData();
     } catch (e) {
