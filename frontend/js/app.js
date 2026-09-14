@@ -1409,73 +1409,20 @@ function previewCompanyLogo(event) {
 }
 
 async function saveCompanyBranding() {
-    const session = (typeof getSession === "function") ? getSession() : {};
-    const shopId = (typeof currentShopId === "function") ? currentShopId() : (session.shopId || null);
-    const isSA = (typeof isSuperAdmin === "function" && isSuperAdmin())
-        || session.role === "super_admin"
-        || session.role === "Super Admin"
-        || session.username === "superadmin";
-
-    const companyField = document.getElementById("companyName");
-    const phoneField = document.getElementById("companyMobile") || document.getElementById("contactNumber");
-    const emailField = document.getElementById("companyEmail") || document.getElementById("emailAddress");
-    const addressField = document.getElementById("companyAddress");
-    const softwareField = document.getElementById("softwareName");
-
-    if (typeof settings !== "object" || !settings) window.settings = {};
-
-    if (companyField && companyField.value.trim()) settings.company = companyField.value.trim();
-    if (phoneField && phoneField.value.trim()) settings.phone = phoneField.value.trim();
-    if (emailField && emailField.value.trim()) settings.email = emailField.value.trim();
-    if (addressField && addressField.value.trim()) settings.address = addressField.value.trim();
-    if (softwareField && softwareField.value.trim()) settings.softwareName = softwareField.value.trim();
-
-    const emailVal = (emailField && emailField.value.trim()) || (settings.email || "");
-
-    try {
-        // No shop (Super Admin / missing shop): save recovery email on user
-        if (!shopId) {
-            const uid = session.userId || session.user_id || "";
-            if (!uid) {
-                alert("Session expired. Please logout and login again.");
-                return;
-            }
-            if (!emailVal) {
-                alert("Enter recovery email in Email Address, then Save.");
-                return;
-            }
-            const sb = getSupabase();
-            if (!sb) {
-                alert("Cloud connection failed.");
-                return;
-            }
-            const { error } = await sb.from("users").update({ recovery_email: emailVal }).eq("id", uid);
-            if (error) {
-                // try by username
-                const { error: e2 } = await sb.from("users").update({ recovery_email: emailVal }).eq("username", session.username || "superadmin");
-                if (e2) throw e2;
-            }
-            const reField = document.getElementById("recoveryEmail");
-            if (reField) reField.value = emailVal;
-            alert("✅ Recovery email saved: " + emailVal + "\n\nUse Username + this email on Forgot Password.\n\nNote: Company logo/name is saved by Shop Admin login.");
-            return;
-        }
-
-        await sbSaveSettings(shopId, settings);
-        if (emailVal) {
-            try {
-                const sb = getSupabase();
-                await sb.from("shops").update({ email: emailVal }).eq("id", shopId);
-                if (session.userId) {
-                    await sb.from("users").update({ recovery_email: emailVal }).eq("id", session.userId);
-                }
-            } catch (e) { console.warn(e); }
-        }
-        alert("Company branding saved.");
-    } catch (e) {
-        console.error(e);
-        alert("Save failed: " + (e.message || e));
-    }
+    const session=getSession();const shopId=currentShopId();
+    if(!shopId){alert("Super Admin branding is fixed. Use Account Settings for profile changes.");return;}
+    const companyField=document.getElementById("companyName");
+    const phoneField=document.getElementById("companyMobile")||document.getElementById("contactNumber");
+    const emailField=document.getElementById("companyEmail")||document.getElementById("emailAddress");
+    const addressField=document.getElementById("companyAddress");
+    if(typeof settings!=="object"||!settings)window.settings={};
+    if(companyField)settings.company=companyField.value.trim();
+    if(phoneField)settings.phone=phoneField.value.trim();
+    if(emailField)settings.email=emailField.value.trim();
+    if(addressField)settings.address=addressField.value.trim();
+    settings.softwareName="Recountix";
+    try{await sbSaveSettings(shopId,settings);alert("Company branding saved.");}
+    catch(e){console.error(e);alert("Save failed: "+(e.message||e));}
 }
 
 window.saveCompanyBranding = saveCompanyBranding;
@@ -1812,21 +1759,8 @@ function filterDashboardMetric(type) {
 }
 window.filterDashboardMetric = filterDashboardMetric;
 
-async function logAudit(action, entityType, entityId, details) {
-    try {
-        const sb = getSupabase();
-        if (!sb) return;
-        const session = getSession();
-        await sb.from("audit_log").insert({
-            shop_id: session.shopId || null,
-            user_id: session.userId || null,
-            username: session.username || "",
-            action: action,
-            entity_type: entityType || "",
-            entity_id: entityId ? String(entityId) : "",
-            details: details || ""
-        });
-    } catch (e) { console.warn("audit", e); }
+async function logAudit(action,entityType,entityId,details) {
+    await sbAddAuditLog(action,entityType,entityId,details);
 }
 window.logAudit = logAudit;
 
@@ -3076,26 +3010,18 @@ async function loadEmployeeLinkGenerator() {
 }
 
 async function saveAgentCheckinCreds(userId) {
-    const codeEl = document.getElementById("code_" + userId);
-    const pinEl = document.getElementById("pin_" + userId);
-    const code = (codeEl && codeEl.value || "").trim();
-    const pin = (pinEl && pinEl.value || "").trim();
-    if (!code) { alert("Agent code required"); return; }
-    if (!pin || pin.length < 4) { alert("PIN minimum 4 characters"); return; }
-    try {
-        const sb = getSupabase();
-        const { error } = await sb.from("users").update({
-            agent_code: code,
-            field_pin: pin,
-            is_field_agent: true
-        }).eq("id", userId);
-        if (error) throw error;
-        alert("Saved.\n\nLink:\n" + buildEmployeeCheckinLink(code));
-        await loadEmployeeLinkGenerator();
-        if (typeof loadFieldTracking === "function") loadFieldTracking();
-    } catch (e) {
-        alert("Save failed: " + (e.message || e));
-    }
+    const codeEl=document.getElementById("code_"+userId),pinEl=document.getElementById("pin_"+userId);
+    const code=(codeEl&&codeEl.value||"").trim(),pin=(pinEl&&pinEl.value||"").trim();
+    if(!code){alert("Agent code required");return;}
+    if(pin.length<6){alert("PIN minimum 6 characters");return;}
+    try{
+      const token=getSession().sessionToken;
+      const {error}=await getSupabase().rpc("app_set_agent_credentials",{p_token:token,p_user_id:userId,p_code:code,p_pin:pin});
+      if(error)throw error;
+      if(pinEl)pinEl.value="";
+      alert("Saved.\n\nLink:\n"+buildEmployeeCheckinLink(code));
+      await loadEmployeeLinkGenerator();if(typeof loadFieldTracking==="function")loadFieldTracking();
+    }catch(e){alert("Save failed: "+(e.message||e));}
 }
 
 function copyAgentCheckinLink(userId) {
