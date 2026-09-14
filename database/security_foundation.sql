@@ -59,9 +59,9 @@ begin
 
   if found then
     if v_user.password like '$2%' then
-      v_valid := crypt(p_password, v_user.password) = v_user.password;
+      v_valid := extensions.crypt(p_password, v_user.password) = v_user.password;
     elsif v_user.password ~ '^[a-f0-9]{64}$' then
-      v_valid := encode(digest('VO-RM-v1-' || p_password, 'sha256'),'hex') = lower(v_user.password);
+      v_valid := encode(extensions.digest('VO-RM-v1-' || p_password, 'sha256'),'hex') = lower(v_user.password);
     end if;
   end if;
 
@@ -80,7 +80,7 @@ begin
 
   if v_user.password !~ '^\\$2' then
     update public.users
-       set password = crypt(p_password, gen_salt('bf', 12))
+       set password = extensions.crypt(p_password, extensions.gen_salt('bf', 12))
      where id = v_user.id;
   end if;
 
@@ -95,9 +95,9 @@ begin
     end if;
   end if;
 
-  v_token := encode(gen_random_bytes(32), 'hex');
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
   insert into public.app_sessions(token_hash, user_id, expires_at)
-  values (encode(digest(v_token,'sha256'),'hex'), v_user.id, now() + interval '12 hours');
+  values (encode(extensions.digest(v_token,'sha256'),'hex'), v_user.id, now() + interval '12 hours');
 
   return jsonb_build_object(
     'token', v_token,
@@ -121,7 +121,7 @@ declare
 begin
   if coalesce(p_token,'') = '' then return jsonb_build_object('valid',false); end if;
   select * into v_session from public.app_sessions
-   where token_hash = encode(digest(p_token,'sha256'),'hex')
+   where token_hash = encode(extensions.digest(p_token,'sha256'),'hex')
      and revoked_at is null and expires_at > now();
   if not found then return jsonb_build_object('valid',false); end if;
 
@@ -145,7 +145,7 @@ security definer
 set search_path = public, pg_temp
 as $$
   update public.app_sessions set revoked_at=now()
-   where token_hash=encode(digest(p_token,'sha256'),'hex') and revoked_at is null;
+   where token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and revoked_at is null;
 $$;
 
 revoke all on function public.app_login(text,text) from public;
@@ -181,7 +181,7 @@ begin
   select * into v_user from public.users where lower(agent_code)=lower(trim(p_agent_code))
     and is_active=true and is_field_agent=true limit 1;
   if not found or not (
-      (v_user.field_pin like '$2%' and crypt(p_pin,v_user.field_pin)=v_user.field_pin)
+      (v_user.field_pin like '$2%' and extensions.crypt(p_pin,v_user.field_pin)=v_user.field_pin)
       or (v_user.field_pin !~ '^\\$2' and v_user.field_pin=p_pin)
     ) then
     insert into public.login_attempts(username,failed_count,locked_until,last_attempt_at)
@@ -193,11 +193,11 @@ begin
   end if;
   delete from public.login_attempts where username=v_key;
   if v_user.field_pin !~ '^\\$2' then
-    update public.users set field_pin=crypt(p_pin,gen_salt('bf',12)) where id=v_user.id;
+    update public.users set field_pin=extensions.crypt(p_pin,extensions.gen_salt('bf',12)) where id=v_user.id;
   end if;
-  v_token:=encode(gen_random_bytes(32),'hex');
+  v_token:=encode(extensions.gen_random_bytes(32),'hex');
   insert into public.field_sessions(token_hash,agent_id,expires_at)
-    values(encode(digest(v_token,'sha256'),'hex'),v_user.id,now()+interval '8 hours');
+    values(encode(extensions.digest(v_token,'sha256'),'hex'),v_user.id,now()+interval '8 hours');
   return jsonb_build_object('token',v_token,'agent',jsonb_build_object(
     'id',v_user.id,'display_name',v_user.display_name,'username',v_user.username));
 end $$;
@@ -209,7 +209,7 @@ language sql security definer set search_path=public,pg_temp as $$
   join public.users u on u.id=fs.agent_id
   join public.customers c on c.shop_id=u.shop_id
     and trim(coalesce(c.executive,''))=trim(coalesce(u.display_name,''))
-  where fs.token_hash=encode(digest(p_token,'sha256'),'hex')
+  where fs.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
     and fs.expires_at>now() and u.is_active=true and u.is_field_agent=true
   order by c.name
 $$;
@@ -220,7 +220,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_user public.users%rowtype; v_ok boolean;
 begin
   select u.* into v_user from public.field_sessions fs join public.users u on u.id=fs.agent_id
-   where fs.token_hash=encode(digest(p_token,'sha256'),'hex') and fs.expires_at>now()
+   where fs.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and fs.expires_at>now()
      and u.is_active=true and u.is_field_agent=true;
   if not found then return jsonb_build_object('ok',false,'error','invalid_session'); end if;
   select exists(select 1 from public.customers c where c.id=p_customer_id and c.shop_id=v_user.shop_id
@@ -258,7 +258,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_role text;
 begin
   select u.role into v_role from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
      and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
   if v_role is distinct from 'super_admin' then raise exception 'access_denied'; end if;
   insert into public.system_config(id,maintenance_mode,maintenance_message,updated_at)
@@ -273,7 +273,7 @@ returns setof public.ads language plpgsql security definer set search_path=publi
 declare v_shop uuid;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
      and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
   return query select a.* from public.ads a where a.is_active=true
@@ -287,7 +287,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_role text; v_id uuid; v_row public.ads%rowtype;
 begin
   select u.role into v_role from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex')
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
      and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
   if v_role is distinct from 'super_admin' then raise exception 'access_denied'; end if;
   if p_action='list' then
@@ -329,7 +329,7 @@ create or replace function public.app_ad_click(p_token text,p_ad_id uuid)
 returns void language plpgsql security definer set search_path=public,pg_temp as $$
 begin
   if not exists(select 1 from public.app_sessions s where
-    s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now())
+    s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now())
     then raise exception 'invalid_session'; end if;
   update public.ads set clicks=clicks+1 where id=p_ad_id and is_active=true
     and start_at<=now() and end_at>=now();
@@ -358,7 +358,7 @@ returns setof public.customers language plpgsql security definer set search_path
 declare v_shop uuid;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null then return; end if;
   return query select * from public.customers where shop_id=v_shop order by created_at desc;
@@ -369,7 +369,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_shop uuid; v_row public.customers%rowtype;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null then raise exception 'invalid_session'; end if;
   if length(trim(coalesce(p_payload->>'name','')))<1 then raise exception 'name_required'; end if;
@@ -420,7 +420,7 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_shop uuid; v_role text;
 begin
   select u.shop_id,u.role into v_shop,v_role from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null or v_role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
   delete from public.customers where id=p_customer_id and shop_id=v_shop;
@@ -431,7 +431,7 @@ returns setof public.recoveries language plpgsql security definer set search_pat
 declare v_shop uuid;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null then return; end if;
   return query select * from public.recoveries where shop_id=v_shop order by recovery_date desc,created_at desc;
@@ -442,7 +442,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_shop uuid; v_customer public.customers%rowtype; v_row public.recoveries%rowtype; v_amount numeric;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null then raise exception 'invalid_session'; end if;
   v_amount:=coalesce((p_payload->>'amount')::numeric,0);
@@ -470,7 +470,7 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_shop uuid; v_role text; v_row public.recoveries%rowtype;
 begin
   select u.shop_id,u.role into v_shop,v_role from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null or v_role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
   select * into v_row from public.recoveries where id=p_recovery_id and shop_id=v_shop for update;
@@ -502,7 +502,7 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare v_user public.users%rowtype;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_user.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
   return query select u.id,u.username,u.role,u.shop_id,u.display_name,u.is_active,
@@ -516,7 +516,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_actor public.users%rowtype; v_role text; v_shop uuid; v_row public.users%rowtype; v_password text;
 begin
   select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_actor.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
   if coalesce(p_payload->>'username','') !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_username'; end if;
@@ -528,7 +528,7 @@ begin
   else v_shop:=nullif(p_payload->>'shop_id','')::uuid; end if;
   if v_shop is null or not exists(select 1 from public.shops where id=v_shop) then raise exception 'invalid_shop'; end if;
   insert into public.users(username,password,role,shop_id,display_name,is_active)
-  values(trim(p_payload->>'username'),crypt(v_password,gen_salt('bf',12)),v_role,v_shop,
+  values(trim(p_payload->>'username'),extensions.crypt(v_password,extensions.gen_salt('bf',12)),v_role,v_shop,
     left(coalesce(nullif(trim(p_payload->>'display_name'),''),trim(p_payload->>'username')),150),true)
   returning * into v_row;
   return jsonb_build_object('id',v_row.id,'username',v_row.username,'role',v_row.role,
@@ -540,7 +540,7 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_actor public.users%rowtype; v_target public.users%rowtype;
 begin
   select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   select * into v_target from public.users where id=p_user_id;
   if not found or v_actor.id=v_target.id or v_target.role='super_admin' then raise exception 'access_denied'; end if;
@@ -556,12 +556,12 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_user public.users%rowtype; v_valid boolean:=false; v_new_username text;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
-  if v_user.password like '$2%' then v_valid:=crypt(p_current_password,v_user.password)=v_user.password;
+  if v_user.password like '$2%' then v_valid:=extensions.crypt(p_current_password,v_user.password)=v_user.password;
   elsif v_user.password ~ '^[a-f0-9]{64}$' then
-    v_valid:=encode(digest('VO-RM-v1-'||p_current_password,'sha256'),'hex')=lower(v_user.password);
+    v_valid:=encode(extensions.digest('VO-RM-v1-'||p_current_password,'sha256'),'hex')=lower(v_user.password);
   end if;
   if not v_valid then raise exception 'invalid_current_password'; end if;
   v_new_username:=trim(coalesce(nullif(p_username,''),v_user.username));
@@ -570,12 +570,12 @@ begin
   if coalesce(p_recovery_email,'')<>'' and p_recovery_email !~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
     then raise exception 'invalid_email'; end if;
   update public.users set username=v_new_username,
-    password=case when coalesce(p_new_password,'')<>'' then crypt(p_new_password,gen_salt('bf',12)) else password end,
+    password=case when coalesce(p_new_password,'')<>'' then extensions.crypt(p_new_password,extensions.gen_salt('bf',12)) else password end,
     recovery_email=nullif(lower(trim(coalesce(p_recovery_email,''))),'')
    where id=v_user.id;
   if coalesce(p_new_password,'')<>'' then
     update public.app_sessions set revoked_at=now() where user_id=v_user.id
-      and token_hash<>encode(digest(p_token,'sha256'),'hex') and revoked_at is null;
+      and token_hash<>encode(extensions.digest(p_token,'sha256'),'hex') and revoked_at is null;
   end if;
   return jsonb_build_object('ok',true,'username',v_new_username);
 end $$;
@@ -596,7 +596,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_shop uuid;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_shop is null then return '{}'::jsonb; end if;
   return coalesce((select jsonb_build_object('company_name',company_name,'software_name',software_name,
@@ -609,7 +609,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_user public.users%rowtype; v_row public.settings%rowtype; v_extra jsonb;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_user.shop_id is null or v_user.role<>'admin' then raise exception 'access_denied'; end if;
   v_extra:=jsonb_build_object('executives',
@@ -633,7 +633,7 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_user public.users%rowtype;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
   insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
@@ -646,7 +646,7 @@ returns setof public.audit_log language plpgsql security definer set search_path
 declare v_user public.users%rowtype;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_user.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
   return query select * from public.audit_log a where
@@ -676,7 +676,7 @@ declare v_actor public.users%rowtype; v_shop public.shops%rowtype; v_id uuid; v_
   v_code text; v_password text;
 begin
   select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_actor.role<>'super_admin' then raise exception 'access_denied'; end if;
 
@@ -699,7 +699,7 @@ begin
       greatest(1,least(coalesce((p_payload->>'maxUsers')::int,5),1000)),true) returning * into v_shop;
     if coalesce(p_payload->>'adminUsername','') !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_admin_username'; end if;
     insert into public.users(username,password,role,shop_id,display_name,is_active)
-    values(trim(p_payload->>'adminUsername'),crypt(v_password,gen_salt('bf',12)),'admin',v_shop.id,
+    values(trim(p_payload->>'adminUsername'),extensions.crypt(v_password,extensions.gen_salt('bf',12)),'admin',v_shop.id,
       left(coalesce(nullif(trim(p_payload->>'adminName'),''),trim(p_payload->>'adminUsername')),150),true);
     insert into public.settings(shop_id,company_name,software_name,phone,email,address)
     values(v_shop.id,v_shop.name,'Recountix',v_shop.contact_number,v_shop.email,v_shop.address)
@@ -795,7 +795,7 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare v_user public.users%rowtype;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
   return query select s.id,s.name,s.code,s.contact_number,s.email,s.address,s.logo_url,s.is_active,
@@ -813,7 +813,7 @@ declare v_user public.users%rowtype; v_id uuid; v_ptp public.promises_to_pay%row
   v_esc public.escalations%rowtype; v_status text;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
 
@@ -899,7 +899,7 @@ declare v_user public.users%rowtype; v_customer public.customers%rowtype; v_agen
   v_link public.payment_links%rowtype; v_receipt public.receipts%rowtype; v_limit int; v_no text;
 begin
   select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
 
@@ -1006,7 +1006,7 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_shop uuid;
 begin
  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
-  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+  where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
  if not found then raise exception 'invalid_session'; end if;
  update public.customers set last_reminder_at=now(),next_reminder_date=p_next_date,updated_at=now()
   where id=p_customer_id and shop_id=v_shop;
@@ -1017,10 +1017,10 @@ returns void language plpgsql security definer set search_path=public,pg_temp as
 declare v_user public.users%rowtype;
 begin
  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+  where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
  if not found or v_user.role<>'admin' then raise exception 'access_denied'; end if;
  if coalesce(p_code,'') !~ '^[A-Za-z0-9_-]{3,30}$' or length(coalesce(p_pin,''))<6 then raise exception 'invalid_credentials'; end if;
- update public.users set agent_code=upper(trim(p_code)),field_pin=crypt(p_pin,gen_salt('bf',12)),is_field_agent=true
+ update public.users set agent_code=upper(trim(p_code)),field_pin=extensions.crypt(p_pin,extensions.gen_salt('bf',12)),is_field_agent=true
   where id=p_user_id and shop_id=v_user.shop_id and role='user';
  if not found then raise exception 'user_not_found'; end if;
 end $$;
@@ -1035,7 +1035,7 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_user public.users%rowtype; v_result jsonb; v_count int:=0; r record;
 begin
  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
-  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+  where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
  if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
  if p_action='summary' then
    select to_jsonb(x) into v_result from public.shop_aging_summary(v_user.shop_id) x;
