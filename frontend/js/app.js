@@ -1265,6 +1265,36 @@ async function saveSettings() {
     }
 }
 
+async function initUserShopSelector() {
+    const wrap = document.getElementById("newUserShopWrap");
+    const select = document.getElementById("newUserShopId");
+    if (!wrap || !select) return;
+
+    if (!isSuperAdmin()) {
+        wrap.style.display = "none";
+        return;
+    }
+
+    wrap.style.display = "block";
+    select.disabled = true;
+    select.innerHTML = '<option value="">Loading shops...</option>';
+    try {
+        const shops = await sbGetShops();
+        select.innerHTML = '<option value="">Select Jewellery Shop</option>' +
+            (shops || []).map((shop) =>
+                '<option value="' + escapeHtml(shop.id) + '">' +
+                escapeHtml(shop.name || shop.code || "Unnamed Shop") +
+                (shop.code ? " (" + escapeHtml(shop.code) + ")" : "") +
+                '</option>'
+            ).join("");
+    } catch (e) {
+        console.error("Unable to load shops for user creation", e);
+        select.innerHTML = '<option value="">Unable to load shops</option>';
+    } finally {
+        select.disabled = false;
+    }
+}
+
 async function addUser() {
     const usernameField = document.getElementById("newUserUsername");
     const passwordField = document.getElementById("newUserPassword");
@@ -1280,12 +1310,23 @@ async function addUser() {
     if (!username) { alert("Please Enter Username"); return; }
     if (password.length < 8) { alert("Password Must Be At Least 8 Characters"); return; }
 
+    const shopSelect = document.getElementById("newUserShopId");
+    const targetShopId = isSuperAdmin()
+        ? (shopSelect ? shopSelect.value : "")
+        : currentShopId();
+    if (!targetShopId) {
+        alert(isSuperAdmin()
+            ? "Please select a Jewellery Shop before adding the user."
+            : "Shop ID is unavailable. Please log in again.");
+        return;
+    }
+
     try {
         await sbAddUser({
             username,
             password,
             role,
-            shop_id: currentShopId(),
+            shop_id: targetShopId,
             display_name: username
         });
         usernameField.value = "";
@@ -1689,6 +1730,7 @@ window.addEventListener("load", async function () {
         if (document.getElementById("recoveryEmail") && settings.recoveryEmail) {
             document.getElementById("recoveryEmail").value = settings.recoveryEmail;
         }
+        await initUserShopSelector();
         await loadUserList();
     }
     fillExecutiveDropdowns();
