@@ -4,6 +4,16 @@
 
 create extension if not exists pgcrypto;
 
+
+create table if not exists public.system_config (
+  id integer primary key,
+  maintenance_mode boolean not null default false,
+  maintenance_message text not null default '',
+  updated_at timestamptz not null default now()
+);
+insert into public.system_config(id,maintenance_mode,maintenance_message)
+values(1,false,'') on conflict(id) do nothing;
+
 create table if not exists public.app_sessions (
   id uuid primary key default gen_random_uuid(),
   token_hash text not null unique,
