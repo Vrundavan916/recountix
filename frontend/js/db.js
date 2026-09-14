@@ -288,7 +288,7 @@ window.sbRegisterShop = sbRegisterShop;
 
 /* ==========================================================
    SUPER ADMIN MODULE
-   Company Management, Add Jewellery (shops), Subscriptions,
+   Business Management, tenant businesses, Subscriptions,
    Audit Log, System-wide Dashboard
 ========================================================== */
 
@@ -316,9 +316,22 @@ async function __superAdmin(action,payload) {
 }
 async function sbGetAllShopsFull(){return(await __superAdmin("shops",{}))||[];}
 
-async function sbAddShop(form){return await __superAdmin("create_shop",form);}
+async function __setBusinessType(shopId,businessType){
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_set_business_type",{
+      p_token:token,p_shop_id:shopId,p_business_type:businessType||"Other"
+    });
+    if(error)throw error;return data;
+}
+async function sbAddShop(form){
+    const created=await __superAdmin("create_shop",form);
+    return created&&created.id?await __setBusinessType(created.id,form.businessType):created;
+}
 
-async function sbUpdateShop(shopId,form){return await __superAdmin("update_shop",{...form,id:shopId});}
+async function sbUpdateShop(shopId,form){
+    await __superAdmin("update_shop",{...form,id:shopId});
+    return await __setBusinessType(shopId,form.businessType);
+}
 
 async function sbToggleShopActive(shopId,isActive){return await __superAdmin("toggle_shop",{id:shopId,is_active:!!isActive});}
 

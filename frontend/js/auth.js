@@ -82,8 +82,8 @@ async function sbLogin(username, password) {
             const messages = {
                 invalid_credentials: "Invalid Username or Password",
                 temporarily_locked: "Too many failed attempts. Try again after 15 minutes.",
-                shop_inactive: "This shop is deactivated. Please contact Super Admin.",
-                license_expired: "The shop license has expired. Contact Super Admin."
+                shop_inactive: "This business is deactivated. Please contact Super Admin.",
+                license_expired: "The business license has expired. Contact Super Admin."
             };
             return { error: rpcData.error, message: messages[rpcData.error] || "Login failed." };
         }
@@ -95,7 +95,7 @@ async function sbLogin(username, password) {
                     const { data: shops } = await sb.rpc("app_get_shops", { p_token: rpcData.token });
                     shop = (shops || []).find(s => String(s.id) === String(u.shop_id)) || (shops && shops[0]) || null;
                 } catch (e) {
-                    throw new Error("Secure shop verification failed");
+                    throw new Error("Secure business verification failed");
                 }
             }
 
@@ -103,7 +103,7 @@ async function sbLogin(username, password) {
             // the fallback path below — otherwise a deactivated / expired shop's
             // users could still log in whenever app_login succeeds.
             if (shop && shop.is_active === false && u.role !== "super_admin") {
-                return { error: "shop_inactive", message: "This shop is deactivated. Please contact Super Admin." };
+                return { error: "shop_inactive", message: "This business is deactivated. Please contact Super Admin." };
             }
             if (shop && shop.license_expiry && u.role !== "super_admin") {
                 const st = (typeof computeSubStatus === "function")
@@ -112,7 +112,7 @@ async function sbLogin(username, password) {
                 if (st === "expired") {
                     return {
                         error: "license_expired",
-                        message: "The shop license has expired.\n\nLogin is disabled.\nA Super Admin can renew it from the Subscription page."
+                        message: "The business license has expired.\n\nLogin is disabled.\nA Super Admin can renew it from the Subscription page."
                     };
                 }
             }
@@ -405,7 +405,7 @@ function applyRoleRestrictions() {
 
     const shopLabel = document.getElementById("currentShopName");
     if (shopLabel) {
-        shopLabel.innerText = session.shopName || (role === "super_admin" ? "All Shops" : "");
+        shopLabel.innerText = session.shopName || (role === "super_admin" ? "All Businesses" : "");
     }
 
     if (role === "admin" || role === "super_admin") return;
@@ -458,7 +458,7 @@ function closeForgotPassword() {
 async function submitForgotPassword() {
     // Password resets must never be authorized by comparing database email
     // values in the browser. Admin reset/verified email flow will handle this.
-    showLoginError("Online password reset is temporarily disabled for security. Contact your shop administrator.");
+    showLoginError("Online password reset is temporarily disabled for security. Contact your business administrator.");
 }
 
 

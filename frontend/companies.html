@@ -60,7 +60,7 @@
 <header class="topbar">
     <div>
         <h1 class="page-title">Company Management</h1>
-        <p class="page-subtitle">Add and manage jewellery shops (tenants)</p>
+        <p class="page-subtitle">Add and manage businesses (tenants)</p>
     </div>
     <div class="user-info">
         <i class="fa-solid fa-user-shield"></i>
@@ -71,11 +71,11 @@
 <section class="table-section fade">
     <div class="summary-bar">
         <div>
-            <h2>All Shops</h2>
-            <span>Every jewellery company registered in the system</span>
+            <h2>All Businesses</h2>
+            <span>Every business registered in the system</span>
         </div>
         <button type="button" class="add-btn" id="addShopButton">
-            <i class="fa-solid fa-plus"></i> Add Jewellery
+            <i class="fa-solid fa-plus"></i> Add Business
         </button>
     </div>
     <div class="table-responsive">
@@ -83,7 +83,8 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Shop Name</th>
+                    <th>Business Name</th>
+                    <th>Business Type</th>
                     <th>Code</th>
                     <th>Contact</th>
                     <th>Plan</th>
@@ -105,16 +106,31 @@
 <!-- ADD / EDIT SHOP MODAL -->
 <div class="modal" id="shopModal" role="dialog" aria-modal="true" aria-hidden="true" style="display:none;">
     <div class="modal-content">
-        <h2 id="shopModalTitle">Add Jewellery Shop</h2>
+        <h2 id="shopModalTitle">Add Business</h2>
         <input type="hidden" id="shopId">
         <div class="form-grid">
             <div>
-                <label>Company / Shop Name</label>
-                <input type="text" id="shopName" placeholder="e.g. Raj Jewellers">
+                <label>Business / Company Name</label>
+                <input type="text" id="shopName" placeholder="e.g. Apex Finance">
             </div>
             <div>
-                <label>Shop Code</label>
-                <input type="text" id="shopCode" placeholder="e.g. RJ" maxlength="10">
+                <label>Business Type</label>
+                <select id="shopBusinessType">
+                    <option value="Other">Other</option>
+                    <option value="Jewellery">Jewellery</option>
+                    <option value="Finance / Loan">Finance / Loan</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="Automobile">Automobile</option>
+                    <option value="Wholesale / Distribution">Wholesale / Distribution</option>
+                    <option value="Education / Fees">Education / Fees</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Services">Services</option>
+                </select>
+            </div>
+            <div>
+                <label>Business Code</label>
+                <input type="text" id="shopCode" placeholder="e.g. APEX" maxlength="10">
             </div>
             <div>
                 <label>Contact Number</label>
@@ -126,7 +142,7 @@
             </div>
             <div class="full-width">
                 <label>Address</label>
-                <textarea id="shopAddress" rows="2" placeholder="Shop Address"></textarea>
+                <textarea id="shopAddress" rows="2" placeholder="Business Address"></textarea>
             </div>
             <div>
                 <label>Plan</label>
@@ -150,8 +166,8 @@
             <br>
             <div class="summary-bar">
                 <div>
-                    <h2 style="font-size:16px;">Initial Shop Admin (optional)</h2>
-                    <span>Creates the first login for this shop</span>
+                    <h2 style="font-size:16px;">Initial Business Admin (optional)</h2>
+                    <span>Creates the first login for this business</span>
                 </div>
             </div>
             <div class="form-grid">
@@ -184,10 +200,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/utils.js?v=11-final"></script>
-<script src="js/db.js?v=11-final"></script>
-<script src="js/auth.js?v=rc005-ads2"></script>
-<script src="js/app.js?v=11-final"></script>
-<script src="js/company.js?v=company-edit-fix-2"></script>
+<script src="js/db.js?v=business-platform-1"></script>
+<script src="js/auth.js?v=business-platform-1"></script>
+<script src="js/app.js?v=business-platform-1"></script>
+<script src="js/company.js?v=business-platform-1"></script>
 <script src="js/excel-import.js"></script>
 
 <script>

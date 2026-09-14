@@ -60,12 +60,13 @@ async function loadSuperDashboard() {
             return `<tr>
                 <td>${i + 1}</td>
                 <td>${shop.name}</td>
+                <td><span class="rx-business-type">${shop.business_type || "Other"}</span></td>
                 <td>${shop.code}</td>
                 <td>${shop.plan_name || "Basic"}</td>
                 <td>${fmtDate(shop.license_expiry)}</td>
-                <td>${shop.is_active ? statusBadge(status) : '<span class="badge badge-danger">Shop Inactive</span>'}</td>
+                <td>${shop.is_active ? statusBadge(status) : '<span class="badge badge-danger">Business Inactive</span>'}</td>
             </tr>`;
-        }).join("") || `<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No shops found</td></tr>`;
+        }).join("") || `<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No businesses found</td></tr>`;
     } catch (e) {
         console.error(e);
         body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef4444;">Failed to load: ${e.message || e}</td></tr>`;
@@ -100,6 +101,7 @@ async function loadCompanies() {
             return `<tr>
             <td>${i + 1}</td>
             <td>${shop.name || ""}</td>
+            <td><span class="rx-business-type">${shop.business_type || "Other"}</span></td>
             <td>${shop.code || ""}</td>
             <td>${shop.contact_number || "-"}</td>
             <td>${(r.subscription && r.subscription.plan_name) || shop.plan_name || "Basic"}</td>
@@ -113,10 +115,10 @@ async function loadCompanies() {
                 <button type="button" onclick="deleteShopHandler('${shop.id}')" title="Delete">🗑️</button>
             </td>
         </tr>`;
-        }).join("") || `<tr><td colspan="8" style="text-align:center;color:#94a3b8;">No shops yet</td></tr>`;
+        }).join("") || `<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No businesses yet</td></tr>`;
     } catch (e) {
         console.error(e);
-        body.innerHTML = `<tr><td colspan="8" style="color:#ef4444;">Failed: ${e.message || e}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" style="color:#ef4444;">Failed: ${e.message || e}</td></tr>`;
     }
 }
 
@@ -151,7 +153,7 @@ function renderCompaniesTable() {
                 </button>
             </td>
         </tr>`;
-    }).join("") || `<tr><td colspan="8" style="text-align:center;color:#94a3b8;">No shops yet. Click "Add Jewellery" to create one.</td></tr>`;
+    }).join("") || `<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No businesses yet. Click "Add Business" to create one.</td></tr>`;
 }
 
 function setShopFieldValue(id, value) {
@@ -162,7 +164,7 @@ function setShopFieldValue(id, value) {
 function showShopModal() {
     const modal = document.getElementById("shopModal");
     if (!modal) {
-        console.error("Shop modal element was not found.");
+        console.error("Business modal element was not found.");
         return;
     }
 
@@ -181,10 +183,11 @@ function showShopModal() {
 
 function openAddShopModal() {
     const title = document.getElementById("shopModalTitle");
-    if (title) title.innerText = "Add Jewellery Shop";
+    if (title) title.innerText = "Add Business Shop";
 
     setShopFieldValue("shopId", "");
     setShopFieldValue("shopName", "");
+    setShopFieldValue("shopBusinessType", "Other");
     setShopFieldValue("shopCode", "");
     setShopFieldValue("shopContact", "");
     setShopFieldValue("shopEmail", "");
@@ -208,9 +211,10 @@ function openEditShopModal(shopId) {
     const shop = allShopsCache.find(s => s.id === shopId);
     if (!shop) return;
 
-    document.getElementById("shopModalTitle").innerText = "Edit Shop";
+    document.getElementById("shopModalTitle").innerText = "Edit Business";
     document.getElementById("shopId").value = shop.id;
     document.getElementById("shopName").value = shop.name || "";
+    setShopFieldValue("shopBusinessType", shop.business_type || "Other");
     document.getElementById("shopCode").value = shop.code || "";
     document.getElementById("shopCode").disabled = true;
     document.getElementById("shopContact").value = shop.contact_number || "";
@@ -235,6 +239,7 @@ async function saveShop() {
     const shopId = document.getElementById("shopId").value;
     const form = {
         name: document.getElementById("shopName").value,
+        businessType: document.getElementById("shopBusinessType") ? document.getElementById("shopBusinessType").value : "Other",
         code: document.getElementById("shopCode").value,
         contact: document.getElementById("shopContact").value,
         email: document.getElementById("shopEmail").value,
@@ -255,7 +260,7 @@ async function saveShop() {
         }
         closeShopModal();
         await loadCompanies();
-        alert("Shop saved successfully.");
+        alert("Business saved successfully.");
     } catch (e) {
         console.error(e);
         alert("Save failed: " + (e.message || e));
@@ -264,7 +269,7 @@ async function saveShop() {
 
 async function toggleShopActiveHandler(shopId, makeActive) {
     const action = makeActive ? "activate" : "deactivate";
-    if (!confirm(`Are you sure you want to ${action} this shop? Shop Admin login will ${makeActive ? "be restored" : "stop working"}.`)) return;
+    if (!confirm(`Are you sure you want to ${action} this business? Business Admin login will ${makeActive ? "be restored" : "stop working"}.`)) return;
     try {
         await sbToggleShopActive(shopId, makeActive);
         await loadCompanies();
@@ -274,7 +279,7 @@ async function toggleShopActiveHandler(shopId, makeActive) {
 }
 
 async function deleteShopHandler(shopId) {
-    if (!confirm("This will permanently delete the shop and ALL its customers/recoveries. Continue?")) return;
+    if (!confirm("This will permanently delete the business and ALL its customers/recoveries. Continue?")) return;
     if (!confirm("Are you absolutely sure? This cannot be undone.")) return;
     try {
         await sbDeleteShop(shopId);
@@ -329,10 +334,10 @@ async function loadSubscriptions() {
                     </button>
                 </td>
             </tr>`;
-        }).join("") || `<tr><td colspan="8" style="text-align:center;color:#94a3b8;">No shops found</td></tr>`;
+        }).join("") || `<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No businesses found</td></tr>`;
     } catch (e) {
         console.error(e);
-        body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;">Failed to load: ${e.message || e}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;">Failed to load: ${e.message || e}</td></tr>`;
     }
 }
 

@@ -244,3 +244,21 @@ body::after{
   }
   body::after{opacity:.78!important;}
 }
+
+
+/* Generic multi-business platform UI */
+.rx-business-type{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(14,143,131,.10),rgba(79,110,247,.09));
+  border:1px solid rgba(14,143,131,.16);color:#145c55;font-size:11px;font-weight:800;
+  white-space:nowrap;
+}
+#shopModal .modal-content{max-width:720px!important;}
+#shopModal .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+#shopBusinessType{background-color:#fff!important;}
+@media(max-width:640px){
+  #shopModal{padding:10px!important;align-items:flex-start!important;}
+  #shopModal .modal-content{margin-top:8px;max-height:calc(100dvh - 20px);padding:20px 16px!important;}
+  #shopModal .form-grid{grid-template-columns:1fr!important;}
+  .summary-bar .add-btn{min-height:44px;touch-action:manipulation;}
+}
