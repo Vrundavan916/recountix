@@ -83,6 +83,16 @@ async function loadCompanies() {
 
     try {
         const rows = await sbGetSubscriptionsWithShops();
+
+        // Keep the exact rows rendered in the table available to the Edit action.
+        // Previously this cache stayed empty, so tapping the pencil could not
+        // locate the selected shop and silently returned without opening.
+        allShopsCache = rows.map((r) => ({
+            ...(r.shop || {}),
+            plan_name: (r.subscription && r.subscription.plan_name) || (r.shop && r.shop.plan_name) || "Basic",
+            license_expiry: r.endDate || (r.shop && r.shop.license_expiry) || ""
+        }));
+
         body.innerHTML = rows.map((r, i) => {
             const shop = r.shop;
             const status = r.liveStatus;
