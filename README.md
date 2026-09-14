@@ -17,15 +17,10 @@ Only Super Admin can onboard new companies. No public registration.
 - Remember me + Forgot password (admin-assisted reset)
 - Modular JavaScript
 
-## Default Logins
+## Authentication
 
-| Username   | Password | Role        | Shop                    |
-|------------|----------|-------------|-------------------------|
-| superadmin | 1234     | Super Admin | All shops               |
-| admin      | 1234     | Admin       | Recountix     |
-| vo_user    | 1234     | User        | Recountix     |
-| rj_admin   | 1234     | Admin       | Raj Jewellers           |
-| gp_admin   | 1234     | Admin       | Golden Palace Jewellers |
+No default production credentials are published. Create a unique Super Admin credential during the
+controlled deployment process, use a password manager, and rotate any earlier test credentials.
 
 ## Setup
 
@@ -34,7 +29,7 @@ Only Super Admin can onboard new companies. No public registration.
    - `database/super_admin_migration.sql`
 2. Confirm tables: `shops`, `users`, `customers`, `recoveries`, `settings`, `subscriptions`, `audit_log`
 3. Open `frontend/login.html` or deploy `frontend/` to GitHub Pages / any static host
-4. Login as `superadmin` / `1234`
+4. Apply `database/security_foundation.sql` and follow `SECURITY_DEPLOYMENT.md`
 
 ## Supabase Config
 
@@ -66,11 +61,10 @@ database/
 
 ## Security notes
 
-- RLS enabled with permissive anon policies for GitHub Pages + anon key (tighten for production with Supabase Auth or Edge Functions).
-- Shop isolation is enforced in application queries via `shop_id`.
-- Expired / inactive shops cannot login (shop staff).
-- Passwords are stored plain to match original app simplicity — hash before commercial production if required.
-
+- Browser sessions are verified by server-side RPCs and expire automatically.
+- Business tables use deny-by-default RLS; browser access is through scoped RPCs.
+- Tenant identity and roles are derived server-side, never trusted from browser storage.
+- Follow [SECURITY_DEPLOYMENT.md](SECURITY_DEPLOYMENT.md) before any production rollout.
 
 ## Developed by
 
