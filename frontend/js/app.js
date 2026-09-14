@@ -1220,74 +1220,48 @@ function firebaseFullRestore() { restoreData(); }
 // Settings / Users
 // ================================
 async function saveSettings() {
-    if (typeof readUpiSettingsIntoSettingsObj === 'function') readUpiSettingsIntoSettingsObj();
-    const usernameField = document.getElementById("adminUsername");
-    const currentPasswordField = document.getElementById("currentPassword");
-    const newPasswordField = document.getElementById("newPassword");
-    const confirmPasswordField = document.getElementById("confirmPassword");
-    const recoveryEmailField = document.getElementById("recoveryEmail");
+    if (typeof readUpiSettingsIntoSettingsObj === "function") readUpiSettingsIntoSettingsObj();
+    const usernameField=document.getElementById("adminUsername");
+    const currentPasswordField=document.getElementById("currentPassword");
+    const newPasswordField=document.getElementById("newPassword");
+    const confirmPasswordField=document.getElementById("confirmPassword");
+    const recoveryEmailField=document.getElementById("recoveryEmail");
+    if(!usernameField)return;
 
-    if (!usernameField) return;
+    const session=getSession();
+    const newUsername=usernameField.value.trim();
+    const currentPassword=currentPasswordField?currentPasswordField.value:"";
+    const newPassword=newPasswordField?newPasswordField.value:"";
+    const confirmPassword=confirmPasswordField?confirmPasswordField.value:"";
+    const recoveryEmail=recoveryEmailField?recoveryEmailField.value.trim():"";
 
-    const session = getSession();
-    const newUsername = usernameField.value.trim();
-    if (!newUsername) {
-        alert("Username Cannot Be Empty");
-        return;
-    }
+    if(!newUsername){alert("Username Cannot Be Empty");return;}
+    if(!currentPassword){alert("Enter your current password to save security settings.");return;}
+    if(newPassword!==confirmPassword){alert("New Password And Confirm Password Do Not Match");return;}
+    if(newPassword && newPassword.length<8){alert("New Password Must Be At Least 8 Characters");return;}
 
     try {
-        const currentPassword = currentPasswordField ? currentPasswordField.value.trim() : "";
-        const newPassword = newPasswordField ? newPasswordField.value.trim() : "";
-        const confirmPassword = confirmPasswordField ? confirmPasswordField.value.trim() : "";
+        await sbUpdateOwnProfile(currentPassword,newUsername,newPassword,recoveryEmail);
+        const activeStore=storage();
+        activeStore.setItem(SESSION_KEYS.username,newUsername);
 
-        if (newPassword !== "" || confirmPassword !== "") {
-            const check = await sbLogin(session.username, currentPassword);
-            if (!check) {
-                alert("Current Password Is Incorrect");
-                return;
-            }
-            setSession(check.user, check.shop ? { name: check.shop.name } : null);
-
-            if (newPassword.length < 4) {
-                alert("New Password Must Be At Least 4 Characters");
-                return;
-            }
-            if (newPassword !== confirmPassword) {
-                alert("New Password And Confirm Password Do Not Match");
-                return;
-            }
-            await sbUpdateUserPassword(session.userId, newPassword);
+        if(session.shopId){
+            const s=await sbGetSettings(session.shopId);
+            if(recoveryEmailField)s.recoveryEmail=recoveryEmail;
+            await sbSaveSettings(session.shopId,s);
+            settings=s;
         }
 
-        if (newUsername !== session.username) {
-            await sbUpdateUsername(session.userId, newUsername);
-            sessionStorage.setItem("bk_username", newUsername);
-        }
-
-        // Always save recovery email on the user account (works for Super Admin too)
-        if (recoveryEmailField && session.userId) {
-            const re = recoveryEmailField.value.trim();
-            const sb = getSupabase();
-            await sb.from("users").update({ recovery_email: re || null }).eq("id", session.userId);
-        }
-
-        if (session.shopId) {
-            const s = await sbGetSettings(session.shopId);
-            if (recoveryEmailField) s.recoveryEmail = recoveryEmailField.value.trim();
-            await sbSaveSettings(session.shopId, s);
-            settings = s;
-        }
-
-        if (currentPasswordField) currentPasswordField.value = "";
-        if (newPasswordField) newPasswordField.value = "";
-        if (confirmPasswordField) confirmPasswordField.value = "";
-
+        if(currentPasswordField)currentPasswordField.value="";
+        if(newPasswordField)newPasswordField.value="";
+        if(confirmPasswordField)confirmPasswordField.value="";
         alert("Settings Saved Successfully.");
         await loadUserList();
-    } catch (e) {
+    } catch(e){
         console.error(e);
-        alert("Save failed: " + (e.message || e));
+        const message=String(e.message||e).includes("invalid_current_password")
+          ?"Current Password Is Incorrect":(e.message||e);
+        alert("Save failed: "+message);
     }
 }
 
