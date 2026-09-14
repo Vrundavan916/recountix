@@ -1028,3 +1028,40 @@ revoke all on function public.app_mark_reminder(text,uuid,date) from public;
 revoke all on function public.app_set_agent_credentials(text,uuid,text,text) from public;
 grant execute on function public.app_mark_reminder(text,uuid,date) to anon,authenticated;
 grant execute on function public.app_set_agent_credentials(text,uuid,text,text) to anon,authenticated;
+
+
+create or replace function public.app_aging(p_token text,p_action text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_result jsonb; v_count int:=0; r record;
+begin
+ select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null and s.expires_at>now() and u.is_active;
+ if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
+ if p_action='summary' then
+   select to_jsonb(x) into v_result from public.shop_aging_summary(v_user.shop_id) x;
+   return coalesce(v_result,'{}'::jsonb);
+ elsif p_action='recalc' then
+   perform public.recalc_all_aging(v_user.shop_id);return jsonb_build_object('ok',true);
+ elsif p_action='broken_ptp' then
+   if v_user.role<>'admin' then raise exception 'access_denied'; end if;
+   for r in select * from public.promises_to_pay where shop_id=v_user.shop_id and status='open'
+     and promised_date<current_date-1 for update
+   loop
+     update public.promises_to_pay set status='broken',broken_at=now(),updated_at=now() where id=r.id;
+     if not exists(select 1 from public.escalations where shop_id=v_user.shop_id and customer_id=r.customer_id
+       and reason='ptp_broken' and status='open') then
+       insert into public.escalations(shop_id,customer_id,reason,level,notes,status)
+       values(v_user.shop_id,r.customer_id,'ptp_broken',1,'Overdue PTP processed automatically','open');
+     end if;
+     v_count:=v_count+1;
+   end loop;
+   return to_jsonb(v_count);
+ end if;
+ raise exception 'invalid_action';
+end $$;
+revoke all on function public.app_aging(text,text) from public;
+grant execute on function public.app_aging(text,text) to anon,authenticated;
+revoke all on function public.process_broken_ptp(integer) from anon,authenticated;
+revoke all on function public.recalc_all_aging(uuid) from anon,authenticated;
+revoke all on function public.shop_aging_summary(uuid) from anon,authenticated;
+revoke all on function public.next_receipt_no(uuid) from anon,authenticated;
