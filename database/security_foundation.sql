@@ -157,3 +157,87 @@ grant execute on function public.app_logout(text) to anon, authenticated;
 
 -- Remove obsolete sessions automatically from a scheduled maintenance job:
 -- delete from public.app_sessions where expires_at < now() - interval '7 days' or revoked_at is not null;
+
+
+-- Field agents: PIN verification and customer access stay server-side.
+create table if not exists public.field_sessions (
+  token_hash text primary key,
+  agent_id uuid not null references public.users(id) on delete cascade,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+alter table public.field_sessions enable row level security;
+revoke all on public.field_sessions from anon, authenticated;
+
+create or replace function public.app_field_login(p_agent_code text, p_pin text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_token text; v_key text;
+begin
+  v_key := 'field:' || lower(trim(coalesce(p_agent_code,'')));
+  if length(p_pin) < 4 then return jsonb_build_object('error','invalid_credentials'); end if;
+  if exists(select 1 from public.login_attempts where username=v_key and locked_until>now()) then
+    return jsonb_build_object('error','temporarily_locked');
+  end if;
+  select * into v_user from public.users where lower(agent_code)=lower(trim(p_agent_code))
+    and is_active=true and is_field_agent=true limit 1;
+  if not found or not (
+      (v_user.field_pin like '$2%' and crypt(p_pin,v_user.field_pin)=v_user.field_pin)
+      or (v_user.field_pin !~ '^\\$2' and v_user.field_pin=p_pin)
+    ) then
+    insert into public.login_attempts(username,failed_count,locked_until,last_attempt_at)
+    values(v_key,1,null,now()) on conflict(username) do update
+      set failed_count=public.login_attempts.failed_count+1,
+          locked_until=case when public.login_attempts.failed_count+1>=5 then now()+interval '15 minutes' else null end,
+          last_attempt_at=now();
+    return jsonb_build_object('error','invalid_credentials');
+  end if;
+  delete from public.login_attempts where username=v_key;
+  if v_user.field_pin !~ '^\\$2' then
+    update public.users set field_pin=crypt(p_pin,gen_salt('bf',12)) where id=v_user.id;
+  end if;
+  v_token:=encode(gen_random_bytes(32),'hex');
+  insert into public.field_sessions(token_hash,agent_id,expires_at)
+    values(encode(digest(v_token,'sha256'),'hex'),v_user.id,now()+interval '8 hours');
+  return jsonb_build_object('token',v_token,'agent',jsonb_build_object(
+    'id',v_user.id,'display_name',v_user.display_name,'username',v_user.username));
+end $$;
+
+create or replace function public.app_field_customers(p_token text)
+returns table(id uuid,name text,village text)
+language sql security definer set search_path=public,pg_temp as $$
+  select c.id,c.name,c.village from public.field_sessions fs
+  join public.users u on u.id=fs.agent_id
+  join public.customers c on c.shop_id=u.shop_id
+    and trim(coalesce(c.executive,''))=trim(coalesce(u.display_name,''))
+  where fs.token_hash=encode(digest(p_token,'sha256'),'hex')
+    and fs.expires_at>now() and u.is_active=true and u.is_field_agent=true
+  order by c.name
+$$;
+
+create or replace function public.app_field_checkin(
+  p_token text,p_customer_id uuid,p_activity_type text,p_notes text,p_lat numeric,p_lng numeric)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_ok boolean;
+begin
+  select u.* into v_user from public.field_sessions fs join public.users u on u.id=fs.agent_id
+   where fs.token_hash=encode(digest(p_token,'sha256'),'hex') and fs.expires_at>now()
+     and u.is_active=true and u.is_field_agent=true;
+  if not found then return jsonb_build_object('ok',false,'error','invalid_session'); end if;
+  select exists(select 1 from public.customers c where c.id=p_customer_id and c.shop_id=v_user.shop_id
+    and trim(coalesce(c.executive,''))=trim(coalesce(v_user.display_name,''))) into v_ok;
+  if not v_ok then return jsonb_build_object('ok',false,'error','customer_not_assigned'); end if;
+  if p_activity_type not in ('visit','call','whatsapp') then
+    return jsonb_build_object('ok',false,'error','invalid_activity');
+  end if;
+  insert into public.agent_activity_log(shop_id,agent_id,customer_id,activity_type,outcome,notes,gps_lat,gps_lng)
+  values(v_user.shop_id,v_user.id,p_customer_id,p_activity_type,'field_checkin',
+    left(coalesce(p_notes,'Public check-in'),2000),p_lat,p_lng);
+  return jsonb_build_object('ok',true);
+end $$;
+
+revoke all on function public.app_field_login(text,text) from public;
+revoke all on function public.app_field_customers(text) from public;
+revoke all on function public.app_field_checkin(text,uuid,text,text,numeric,numeric) from public;
+grant execute on function public.app_field_login(text,text) to anon,authenticated;
+grant execute on function public.app_field_customers(text) to anon,authenticated;
+grant execute on function public.app_field_checkin(text,uuid,text,text,numeric,numeric) to anon,authenticated;
