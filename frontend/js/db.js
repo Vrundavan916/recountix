@@ -402,141 +402,20 @@ async function sbGetAuditLog(limit) {
 }
 
 /* ---------- SHOPS (full, incl. inactive) ---------- */
-async function sbGetAllShopsFull() {
-    const sb = getSupabase();
-    const { data, error } = await sb.from("shops").select("*").order("name");
-    if (error) throw error;
-    return data || [];
+async function __superAdmin(action,payload) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_superadmin",{p_token:token,p_action:action,p_payload:payload||{}});
+    if(error)throw error;return data;
 }
+async function sbGetAllShopsFull(){return(await __superAdmin("shops",{}))||[];}
 
-async function sbAddShop(form) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
+async function sbAddShop(form){return await __superAdmin("create_shop",form);}
 
-    const name = (form.name || "").trim();
-    const code = (form.code || "").trim().toUpperCase().replace(/\s+/g, "");
-    if (!name) throw new Error("Shop / Company name required");
-    if (!code || code.length < 2) throw new Error("Shop code required (min 2 chars)");
+async function sbUpdateShop(shopId,form){return await __superAdmin("update_shop",{...form,id:shopId});}
 
-    const { data: existingCode } = await sb.from("shops").select("id").eq("code", code).maybeSingle();
-    if (existingCode) throw new Error("Shop code already exists. Choose another code.");
+async function sbToggleShopActive(shopId,isActive){return await __superAdmin("toggle_shop",{id:shopId,is_active:!!isActive});}
 
-    const payload = {
-        name,
-        code,
-        contact_number: (form.contact || "").trim() || null,
-        email: (form.email || "").trim() || null,
-        address: (form.address || "").trim() || null,
-        plan_name: form.plan || "Basic",
-        license_expiry: form.licenseExpiry || null,
-        max_users: Number(form.maxUsers || 5),
-        is_active: true
-    };
-
-    const { data: shop, error } = await sb.from("shops").insert(payload).select().single();
-    if (error) throw error;
-
-    // Optional: create an initial admin user for this shop
-    if (form.adminUsername) {
-        const adminUsername = form.adminUsername.trim();
-        const adminPassword = (form.adminPassword || "1234").trim();
-        const { data: existingUser } = await sb.from("users").select("id").eq("username", adminUsername).maybeSingle();
-        if (!existingUser) {
-            await sb.from("users").insert({
-                username: adminUsername,
-                password: (typeof hashPassword === 'function' ? await hashPassword(adminPassword || "ChangeMe@1234") : (adminPassword || "ChangeMe@1234")),
-                role: "admin",
-                shop_id: shop.id,
-                display_name: form.adminName || adminUsername,
-                is_active: true
-            });
-        }
-    }
-
-    // Settings row + starter subscription
-    await sb.from("settings").upsert({
-        shop_id: shop.id,
-        company_name: name,
-        software_name: "Recountix",
-        phone: payload.contact_number,
-        email: payload.email,
-        address: payload.address
-    }, { onConflict: "shop_id" });
-
-    if (form.licenseExpiry) {
-        await sb.from("subscriptions").insert({
-            shop_id: shop.id,
-            plan_name: form.plan || "Basic",
-            amount: Number(form.amount || 0),
-            start_date: new Date().toISOString().split("T")[0],
-            end_date: form.licenseExpiry,
-            status: "active"
-        });
-    }
-
-    await sbAddAuditLog("shop.create", "shop", shop.id, `Created shop "${name}" (${code})`, shop.id);
-    return shop;
-}
-
-async function sbUpdateShop(shopId, form) {
-    const sb = getSupabase();
-    const payload = {
-        name: (form.name || "").trim(),
-        contact_number: (form.contact || "").trim() || null,
-        email: (form.email || "").trim() || null,
-        address: (form.address || "").trim() || null,
-        plan_name: form.plan || "Basic",
-        license_expiry: form.licenseExpiry || null,
-        max_users: Number(form.maxUsers || 5)
-    };
-    const { data, error } = await sb.from("shops").update(payload).eq("id", shopId).select().single();
-    if (error) throw error;
-    await sbAddAuditLog("shop.update", "shop", shopId, `Updated shop details`, shopId);
-    
-    // Keep latest subscription end_date in sync with shop license
-    if (form.licenseExpiry) {
-        try {
-            const { data: latest } = await sb.from("subscriptions")
-                .select("id")
-                .eq("shop_id", shopId)
-                .order("end_date", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-            if (latest && latest.id) {
-                await sb.from("subscriptions").update({
-                    end_date: form.licenseExpiry,
-                    plan_name: form.planName || form.plan || "Basic",
-                    status: "active"
-                }).eq("id", latest.id);
-            } else {
-                await sb.from("subscriptions").insert({
-                    shop_id: shopId,
-                    plan_name: form.planName || form.plan || "Basic",
-                    end_date: form.licenseExpiry,
-                    start_date: new Date().toISOString().slice(0,10),
-                    status: "active"
-                });
-            }
-        } catch (e) { console.warn("sub sync", e); }
-    }
-    return data;
-}
-
-async function sbToggleShopActive(shopId, isActive) {
-    const sb = getSupabase();
-    const { data, error } = await sb.from("shops").update({ is_active: isActive }).eq("id", shopId).select().single();
-    if (error) throw error;
-    await sbAddAuditLog(isActive ? "shop.activate" : "shop.deactivate", "shop", shopId, isActive ? "Shop activated" : "Shop deactivated", shopId);
-    return data;
-}
-
-async function sbDeleteShop(shopId) {
-    const sb = getSupabase();
-    const { error } = await sb.from("shops").delete().eq("id", shopId);
-    if (error) throw error;
-    await sbAddAuditLog("shop.delete", "shop", shopId, "Shop deleted", shopId);
-    return true;
-}
+async function sbDeleteShop(shopId){await __superAdmin("delete_shop",{id:shopId});return true;}
 
 /* ---------- SUBSCRIPTIONS ---------- */
 function getEffectiveLicenseExpiry(shop, sub) {
@@ -559,92 +438,17 @@ function computeSubStatus(endDate) {
     return "active";
 }
 
-async function sbGetSubscriptionsWithShops() {
-    const sb = getSupabase();
-    const { data: shops, error: shopErr } = await sb.from("shops").select("*").order("name");
-    if (shopErr) throw shopErr;
-
-    const { data: subs, error: subErr } = await sb
-        .from("subscriptions")
-        .select("*")
-        .order("end_date", { ascending: false });
-    if (subErr) throw subErr;
-
-    // latest subscription per shop
-    const latestByShop = {};
-    (subs || []).forEach(s => {
-        if (!latestByShop[s.shop_id]) latestByShop[s.shop_id] = s;
-    });
-
-    return (shops || []).map(shop => {
-        const sub = latestByShop[shop.id] || null;
-        // Same rule on every page: later of shop.license_expiry vs subscription.end_date
-        const a = shop.license_expiry ? String(shop.license_expiry).slice(0, 10) : "";
-        const b = sub && sub.end_date ? String(sub.end_date).slice(0, 10) : "";
-        let endDate = "";
-        if (a && b) endDate = a >= b ? a : b;
-        else endDate = b || a || null;
-        // Auto-heal: if subscription is later than shop.license_expiry, trust later and update shop async
-        if (endDate && shop.license_expiry && String(shop.license_expiry).slice(0,10) !== String(endDate).slice(0,10)) {
-            const later = String(endDate).slice(0,10);
-            if (!shop.license_expiry || later > String(shop.license_expiry).slice(0,10)) {
-                sb.from("shops").update({ license_expiry: later }).eq("id", shop.id).then(() => {});
-                shop.license_expiry = later;
-            } else if (sub && sub.id && String(shop.license_expiry).slice(0,10) > String(sub.end_date).slice(0,10)) {
-                sb.from("subscriptions").update({ end_date: shop.license_expiry }).eq("id", sub.id).then(() => {});
-                endDate = shop.license_expiry;
-            }
-        }
-        return {
-            shop,
-            subscription: sub,
-            endDate: endDate,
-            liveStatus: computeSubStatus(endDate)
-        };
-    });
+async function sbGetSubscriptionsWithShops(){
+    const rows=(await __superAdmin("subscriptions",{}))||[];
+    return rows.map(x=>({...x,liveStatus:computeSubStatus(x.endDate)}));
 }
 
-async function sbRenewSubscription(shopId, form) {
-    const sb = getSupabase();
-    const payload = {
-        shop_id: shopId,
-        plan_name: form.plan || "Basic",
-        amount: Number(form.amount || 0),
-        start_date: new Date().toISOString().split("T")[0],
-        end_date: form.endDate,
-        status: "active",
-        remarks: form.remarks || ""
-    };
-    const { data, error } = await sb.from("subscriptions").insert(payload).select().single();
-    if (error) throw error;
-
-    // keep shop row in sync for quick reads
-    await sb.from("shops").update({ license_expiry: form.endDate, plan_name: form.plan || "Basic" }).eq("id", shopId);
-
-    await sbAddAuditLog("subscription.renew", "subscription", data.id, `Renewed to ${form.plan} until ${form.endDate}`, shopId);
-    return data;
+async function sbRenewSubscription(shopId,form){
+    return await __superAdmin("renew",{...form,shop_id:shopId});
 }
 
 /* ---------- SUPER ADMIN DASHBOARD STATS ---------- */
-async function sbGetSuperDashboardStats() {
-    const sb = getSupabase();
-
-    const { data: shops, error: shopErr } = await sb.from("shops").select("*");
-    if (shopErr) throw shopErr;
-
-    const { data: custs, error: custErr } = await sb.from("customers").select("shop_id, outstanding");
-    if (custErr) throw custErr;
-
-    const totalShops = (shops || []).length;
-    const activeShops = (shops || []).filter(s => s.is_active).length;
-    const inactiveShops = totalShops - activeShops;
-    const totalCustomers = (custs || []).length;
-    const totalOutstanding = (custs || []).reduce((sum, c) => sum + Number(c.outstanding || 0), 0);
-    const expiringSoon = (shops || []).filter(s => computeSubStatus(s.license_expiry) === "expiring").length;
-    const expired = (shops || []).filter(s => computeSubStatus(s.license_expiry) === "expired").length;
-
-    return { totalShops, activeShops, inactiveShops, totalCustomers, totalOutstanding, expiringSoon, expired, shops: shops || [] };
-}
+async function sbGetSuperDashboardStats(){return await __superAdmin("stats",{});}
 
 window.sbAddAuditLog = sbAddAuditLog;
 window.sbGetAuditLog = sbGetAuditLog;
