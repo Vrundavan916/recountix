@@ -74,7 +74,7 @@
             <h2>All Shops</h2>
             <span>Every jewellery company registered in the system</span>
         </div>
-        <button class="add-btn" onclick="openAddShopModal()">
+        <button type="button" class="add-btn" id="addShopButton">
             <i class="fa-solid fa-plus"></i> Add Jewellery
         </button>
     </div>
@@ -103,7 +103,7 @@
 </div>
 
 <!-- ADD / EDIT SHOP MODAL -->
-<div class="modal" id="shopModal" style="display:none;">
+<div class="modal" id="shopModal" role="dialog" aria-modal="true" aria-hidden="true" style="display:none;">
     <div class="modal-content">
         <h2 id="shopModalTitle">Add Jewellery Shop</h2>
         <input type="hidden" id="shopId">
@@ -187,7 +187,7 @@
 <script src="js/db.js?v=11-final"></script>
 <script src="js/auth.js?v=rc005-ads2"></script>
 <script src="js/app.js?v=11-final"></script>
-<script src="js/company.js"></script>
+<script src="js/company.js?v=modal-fix-1"></script>
 <script src="js/excel-import.js"></script>
 
 <script>
