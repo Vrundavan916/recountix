@@ -804,3 +804,88 @@ begin
 end $$;
 revoke all on function public.app_get_shops(text) from public;
 grant execute on function public.app_get_shops(text) to anon,authenticated;
+
+
+-- PTP and escalation workflows, scoped to the verified session shop.
+create or replace function public.app_collection(p_token text,p_action text,p_payload jsonb default '{}'::jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_id uuid; v_ptp public.promises_to_pay%rowtype;
+  v_esc public.escalations%rowtype; v_status text;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
+
+  if p_action='ptp_list' then
+    v_status:=coalesce(p_payload->>'status','all');
+    return coalesce((select jsonb_agg(to_jsonb(p) order by p.promised_date)
+      from public.promises_to_pay p where p.shop_id=v_user.shop_id
+       and (v_status='all' or p.status=v_status)),'[]'::jsonb);
+
+  elsif p_action='ptp_save' then
+    if not exists(select 1 from public.customers where id=(p_payload->>'customer_id')::uuid
+      and shop_id=v_user.shop_id) then raise exception 'customer_not_found'; end if;
+    if coalesce((p_payload->>'promised_amount')::numeric,0)<0 then raise exception 'invalid_amount'; end if;
+    v_id=nullif(p_payload->>'id','')::uuid;
+    if v_id is null then
+      insert into public.promises_to_pay(shop_id,customer_id,agent_id,promised_amount,promised_date,notes,status,created_by)
+      values(v_user.shop_id,(p_payload->>'customer_id')::uuid,nullif(p_payload->>'agent_id','')::uuid,
+        (p_payload->>'promised_amount')::numeric,(p_payload->>'promised_date')::date,
+        left(coalesce(p_payload->>'notes',''),2000),'open',v_user.id) returning * into v_ptp;
+    else
+      update public.promises_to_pay set agent_id=nullif(p_payload->>'agent_id','')::uuid,
+        promised_amount=(p_payload->>'promised_amount')::numeric,promised_date=(p_payload->>'promised_date')::date,
+        notes=left(coalesce(p_payload->>'notes',''),2000),updated_at=now()
+       where id=v_id and shop_id=v_user.shop_id returning * into v_ptp;
+      if not found then raise exception 'ptp_not_found'; end if;
+    end if;
+    update public.customers set ptp_date=v_ptp.promised_date,ptp_amount=v_ptp.promised_amount,
+      ptp_notes=v_ptp.notes,updated_at=now() where id=v_ptp.customer_id and shop_id=v_user.shop_id;
+    return to_jsonb(v_ptp);
+
+  elsif p_action='ptp_status' then
+    v_id=(p_payload->>'id')::uuid;v_status=p_payload->>'status';
+    if v_status not in ('open','kept','broken','cancelled') then raise exception 'invalid_status'; end if;
+    update public.promises_to_pay set status=v_status,updated_at=now(),
+      broken_at=case when v_status='broken' then now() else broken_at end,
+      kept_at=case when v_status='kept' then now() else kept_at end,
+      kept_recovery_id=case when v_status='kept' then nullif(p_payload->>'kept_recovery_id','')::uuid else kept_recovery_id end
+      where id=v_id and shop_id=v_user.shop_id returning * into v_ptp;
+    if not found then raise exception 'ptp_not_found'; end if;
+    if v_status in ('kept','broken','cancelled') then
+      update public.customers set ptp_date=null,ptp_amount=null,ptp_notes=null,updated_at=now()
+       where id=v_ptp.customer_id and shop_id=v_user.shop_id;
+    end if;
+    if v_status='broken' and not exists(select 1 from public.escalations where
+      shop_id=v_user.shop_id and customer_id=v_ptp.customer_id and reason='ptp_broken' and status='open') then
+      insert into public.escalations(shop_id,customer_id,reason,level,notes,status)
+      values(v_user.shop_id,v_ptp.customer_id,'ptp_broken',1,
+        'PTP broken. Amount: '||v_ptp.promised_amount||' Date: '||v_ptp.promised_date,'open');
+    end if;
+    return to_jsonb(v_ptp);
+
+  elsif p_action='ptp_delete' then
+    if v_user.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+    delete from public.promises_to_pay where id=(p_payload->>'id')::uuid and shop_id=v_user.shop_id;
+    return jsonb_build_object('ok',true);
+
+  elsif p_action='escalation_list' then
+    v_status:=coalesce(p_payload->>'status','all');
+    return coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at desc)
+      from public.escalations e where e.shop_id=v_user.shop_id
+       and (v_status='all' or e.status=v_status)),'[]'::jsonb);
+
+  elsif p_action='escalation_update' then
+    v_id=(p_payload->>'id')::uuid;v_status=coalesce(p_payload->>'status','open');
+    if v_status not in ('open','in_progress','resolved','closed') then raise exception 'invalid_status'; end if;
+    update public.escalations set status=v_status,level=greatest(1,least(coalesce((p_payload->>'level')::int,level),10)),
+      notes=left(coalesce(p_payload->>'notes',notes),2000),updated_at=now()
+      where id=v_id and shop_id=v_user.shop_id returning * into v_esc;
+    if not found then raise exception 'escalation_not_found'; end if;
+    return to_jsonb(v_esc);
+  end if;
+  raise exception 'invalid_action';
+end $$;
+revoke all on function public.app_collection(text,text,jsonb) from public;
+grant execute on function public.app_collection(text,text,jsonb) to anon,authenticated;
