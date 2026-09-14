@@ -25,3 +25,39 @@ function polish(){document.querySelectorAll('button').forEach(b=>{if(!b.dataset.
 async function run(){applyRoleUI();upgradeCustomerView();polish();await enhanceDashboard()}
 window.addEventListener('load',()=>{setTimeout(run,900);setTimeout(run,2200)});document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(run,200)});setInterval(()=>{if(document.getElementById('voFinalKpis'))enhanceDashboard()},30000);
 })();
+
+/* Recountix Rc.0.05 — Compact data views: overview first, details on demand */
+(function(){
+  'use strict';
+  function makeCompact(section){
+    if(!section || section.dataset.rcCompact==='1') return;
+    const head=section.querySelector(':scope > .summary-bar, :scope > .vo-today-head');
+    if(!head) return;
+    const title=(head.querySelector('h2,h3')?.textContent||'View details').trim();
+    const children=[...section.children].filter(el=>el!==head);
+    if(!children.length) return;
+    const body=document.createElement('div'); body.className='rc-compact-body';
+    children.forEach(el=>body.appendChild(el));
+    section.appendChild(body);
+    const actions=document.createElement('div'); actions.className='rc-compact-actions';
+    const btn=document.createElement('button'); btn.type='button'; btn.className='rc-view-details';
+    btn.innerHTML='<span>View details</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>';
+    btn.setAttribute('aria-expanded','false');
+    btn.setAttribute('aria-label','Open '+title);
+    actions.appendChild(btn); head.appendChild(actions);
+    btn.addEventListener('click',()=>{
+      const open=section.classList.toggle('rc-open');
+      btn.setAttribute('aria-expanded',String(open));
+      btn.querySelector('span').textContent=open?'Hide details':'View details';
+      if(open) setTimeout(()=>body.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
+    });
+    section.dataset.rcCompact='1';
+  }
+  function apply(){
+    document.querySelectorAll('section.table-section, section.vo-today-panel').forEach(makeCompact);
+  }
+  window.rcApplyCompactViews=apply;
+  window.addEventListener('load',()=>{setTimeout(apply,350);setTimeout(apply,1400);setTimeout(apply,2600)});
+  const mo=new MutationObserver(()=>{clearTimeout(window.__rcCompactTimer);window.__rcCompactTimer=setTimeout(apply,120)});
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+})();
