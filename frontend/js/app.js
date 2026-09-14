@@ -2194,9 +2194,9 @@ async function markPtpCancelled(id) {
 async function runBrokenPtpCheck() {
     if (!confirm("Process all overdue open PTPs as broken (server function)?")) return;
     try {
-        const sb = getSupabase();
-        if (!sb) throw new Error("Supabase not ready");
-        const { data, error } = await sb.rpc("process_broken_ptp", { p_grace_days: 1 });
+        const token = getSession().sessionToken;
+        if (!token) throw new Error("Secure session required");
+        const { data, error } = await getSupabase().rpc("app_aging", { p_token: token, p_action: "broken_ptp" });
         if (error) throw error;
         alert("Processed. Broken count: " + (data ?? 0));
         await loadPtpTable();
