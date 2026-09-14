@@ -889,3 +889,113 @@ begin
 end $$;
 revoke all on function public.app_collection(text,text,jsonb) from public;
 grant execute on function public.app_collection(text,text,jsonb) to anon,authenticated;
+
+
+-- Activity, assignment, legal, payment and receipt operations.
+create or replace function public.app_records(p_token text,p_action text,p_payload jsonb default '{}'::jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype; v_customer public.customers%rowtype; v_agent public.users%rowtype;
+  v_activity public.agent_activity_log%rowtype; v_notice public.legal_notices%rowtype;
+  v_link public.payment_links%rowtype; v_receipt public.receipts%rowtype; v_limit int; v_no text;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_user.shop_id is null then raise exception 'invalid_session'; end if;
+
+  if p_action='assign_agent' then
+    if v_user.role<>'admin' then raise exception 'access_denied'; end if;
+    select * into v_customer from public.customers where id=(p_payload->>'customer_id')::uuid
+      and shop_id=v_user.shop_id;
+    if not found then raise exception 'customer_not_found'; end if;
+    if nullif(p_payload->>'agent_id','') is not null then
+      select * into v_agent from public.users where id=(p_payload->>'agent_id')::uuid
+        and shop_id=v_user.shop_id and is_active=true;
+      if not found then raise exception 'invalid_agent'; end if;
+    end if;
+    update public.customers set assigned_agent_id=nullif(p_payload->>'agent_id','')::uuid,
+      executive=left(coalesce(p_payload->>'executive',''),150),updated_at=now()
+      where id=v_customer.id returning * into v_customer;
+    return to_jsonb(v_customer);
+
+  elsif p_action='activity_add' then
+    if not exists(select 1 from public.customers where id=(p_payload->>'customer_id')::uuid
+      and shop_id=v_user.shop_id) then raise exception 'customer_not_found'; end if;
+    insert into public.agent_activity_log(shop_id,agent_id,customer_id,task_id,activity_type,outcome,notes,
+      gps_lat,gps_lng,duration_sec)
+    values(v_user.shop_id,coalesce(nullif(p_payload->>'agent_id','')::uuid,v_user.id),
+      (p_payload->>'customer_id')::uuid,nullif(p_payload->>'task_id','')::uuid,
+      coalesce(p_payload->>'activity_type','note'),left(coalesce(p_payload->>'outcome',''),500),
+      left(coalesce(p_payload->>'notes',''),2000),nullif(p_payload->>'gps_lat','')::numeric,
+      nullif(p_payload->>'gps_lng','')::numeric,nullif(p_payload->>'duration_sec','')::int)
+      returning * into v_activity;
+    return to_jsonb(v_activity);
+
+  elsif p_action='activity_list' then
+    v_limit:=greatest(1,least(coalesce((p_payload->>'limit')::int,100),500));
+    return coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at desc)
+      from (select * from public.agent_activity_log where shop_id=v_user.shop_id
+        and (nullif(p_payload->>'agent_id','') is null or agent_id=(p_payload->>'agent_id')::uuid)
+        order by created_at desc limit v_limit) a),'[]'::jsonb);
+
+  elsif p_action='legal_add' then
+    if not exists(select 1 from public.customers where id=(p_payload->>'customer_id')::uuid
+      and shop_id=v_user.shop_id) then raise exception 'customer_not_found'; end if;
+    insert into public.legal_notices(shop_id,customer_id,notice_type,amount_at_issue,sent_via,sent_at,created_by,notes)
+    values(v_user.shop_id,(p_payload->>'customer_id')::uuid,coalesce(p_payload->>'notice_type','reminder_letter'),
+      greatest(coalesce((p_payload->>'amount_at_issue')::numeric,0),0),left(coalesce(p_payload->>'sent_via','print'),30),
+      coalesce(nullif(p_payload->>'sent_at','')::timestamptz,now()),v_user.id,left(coalesce(p_payload->>'notes',''),2000))
+      returning * into v_notice;
+    update public.customers set last_legal_notice_at=now(),updated_at=now()
+      where id=v_notice.customer_id and shop_id=v_user.shop_id;
+    return to_jsonb(v_notice);
+
+  elsif p_action='payment_link_add' then
+    if not exists(select 1 from public.customers where id=(p_payload->>'customer_id')::uuid
+      and shop_id=v_user.shop_id) then raise exception 'customer_not_found'; end if;
+    if coalesce((p_payload->>'amount')::numeric,0)<=0 then raise exception 'invalid_amount'; end if;
+    insert into public.payment_links(shop_id,customer_id,amount,currency,gateway,short_url,qr_data,status,notes,created_by)
+    values(v_user.shop_id,(p_payload->>'customer_id')::uuid,(p_payload->>'amount')::numeric,'INR',
+      left(coalesce(p_payload->>'gateway','upi'),30),nullif(p_payload->>'short_url',''),
+      nullif(p_payload->>'qr_data',''),'created',left(coalesce(p_payload->>'notes',''),1000),v_user.id)
+      returning * into v_link;
+    return to_jsonb(v_link);
+
+  elsif p_action='receipt_add' then
+    if not exists(select 1 from public.recoveries where id=(p_payload->>'recovery_id')::uuid
+      and shop_id=v_user.shop_id) then raise exception 'recovery_not_found'; end if;
+    v_no:=nullif(trim(p_payload->>'receipt_no'),'');
+    if v_no is null then v_no:=public.next_receipt_no(v_user.shop_id); end if;
+    insert into public.receipts(shop_id,recovery_id,customer_id,receipt_no,amount,pdf_url,whatsapp_sent)
+    values(v_user.shop_id,(p_payload->>'recovery_id')::uuid,nullif(p_payload->>'customer_id','')::uuid,
+      left(v_no,100),greatest(coalesce((p_payload->>'amount')::numeric,0),0),nullif(p_payload->>'pdf_url',''),
+      coalesce((p_payload->>'whatsapp_sent')::boolean,false)) returning * into v_receipt;
+    return to_jsonb(v_receipt);
+
+  elsif p_action='set_field_agent' then
+    if v_user.role<>'admin' then raise exception 'access_denied'; end if;
+    update public.users set is_field_agent=coalesce((p_payload->>'is_field')::boolean,false)
+      where id=(p_payload->>'user_id')::uuid and shop_id=v_user.shop_id and role<>'super_admin'
+      returning * into v_agent;
+    if not found then raise exception 'user_not_found'; end if;
+    return jsonb_build_object('id',v_agent.id,'is_field_agent',v_agent.is_field_agent);
+  end if;
+  raise exception 'invalid_action';
+end $$;
+
+create or replace function public.app_bulk_customers(p_token text,p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_item jsonb; v_result jsonb:='[]'::jsonb; v_count int;
+begin
+  if jsonb_typeof(p_rows)<>'array' then raise exception 'invalid_rows'; end if;
+  v_count:=jsonb_array_length(p_rows);
+  if v_count<1 or v_count>500 then raise exception 'batch_size_1_to_500'; end if;
+  for v_item in select value from jsonb_array_elements(p_rows)
+  loop v_result:=v_result||jsonb_build_array(public.app_save_customer(p_token,null,v_item)); end loop;
+  return v_result;
+end $$;
+
+revoke all on function public.app_records(text,text,jsonb) from public;
+revoke all on function public.app_bulk_customers(text,jsonb) from public;
+grant execute on function public.app_records(text,text,jsonb) to anon,authenticated;
+grant execute on function public.app_bulk_customers(text,jsonb) to anon,authenticated;
