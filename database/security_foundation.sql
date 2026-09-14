@@ -1065,3 +1065,43 @@ revoke all on function public.process_broken_ptp(integer) from anon,authenticate
 revoke all on function public.recalc_all_aging(uuid) from anon,authenticated;
 revoke all on function public.shop_aging_summary(uuid) from anon,authenticated;
 revoke all on function public.next_receipt_no(uuid) from anon,authenticated;
+
+
+-- FINAL LOCKDOWN: no business table is directly accessible through the anon client.
+-- All browser operations above use narrow SECURITY DEFINER RPCs with verified opaque sessions.
+do $$
+declare t text; p record;
+begin
+  foreach t in array array[
+    'shops','users','customers','recoveries','settings','subscriptions','audit_log',
+    'customer_balances','promises_to_pay','agent_tasks','agent_activity_log','reminder_queue',
+    'payment_links','legal_notices','escalations','receipts','erp_sync_log','reminder_rules',
+    'customer_invoices','ads','system_config','app_sessions','field_sessions','login_attempts'
+  ]
+  loop
+    if to_regclass('public.'||t) is not null then
+      execute format('alter table public.%I enable row level security',t);
+      for p in select policyname from pg_policies where schemaname='public' and tablename=t
+      loop execute format('drop policy if exists %I on public.%I',p.policyname,t); end loop;
+      execute format('revoke all on table public.%I from anon, authenticated',t);
+    end if;
+  end loop;
+end $$;
+
+-- Remove execute privilege from obsolete/custom functions by default when they exist.
+-- Approved app_* RPCs are granted explicitly in this migration.
+do $$
+declare f record;
+begin
+  for f in
+    select p.oid::regprocedure as signature
+    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in ('increment_ad_click','process_broken_ptp','recalc_all_aging',
+                        'shop_aging_summary','next_receipt_no')
+  loop
+    execute format('revoke all on function %s from anon, authenticated',f.signature);
+  end loop;
+end $$;
+
+select 'Recountix production security foundation applied' as status;
