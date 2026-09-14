@@ -148,52 +148,46 @@ async function sbUpdateCustomerOutstanding() {
 }
 
 /* ---------- USERS ---------- */
-async function sbGetUsers(shopId) {
-    const sb = getSupabase();
-    let q = sb.from("users").select("id, username, role, shop_id, display_name, is_active, is_field_agent, mobile, agent_code").order("username");
-    if (shopId) q = q.eq("shop_id", shopId);
-    // Super admin can see all; shop admin sees only own shop
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
+async function sbGetUsers() {
+    const token=getSession().sessionToken;if(!token)return[];
+    const {data,error}=await getSupabase().rpc("app_get_users",{p_token:token});
+    if(error)throw error;return data||[];
 }
 
 async function sbAddUser(user) {
-    const sb = getSupabase();
-    const payload = {
-        username: user.username,
-        password: (typeof hashPassword === 'function' ? await hashPassword(user.password) : user.password),
-        role: user.role || "user",
-        shop_id: user.shop_id || currentShopId(),
-        display_name: user.display_name || user.username
-    };
-    const { data, error } = await sb.from("users").insert(payload).select().single();
-    if (error) throw error;
-    return data;
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_create_user",{p_token:token,p_payload:{
+      username:user.username,password:user.password,role:user.role||"user",
+      shop_id:user.shop_id||currentShopId(),display_name:user.display_name||user.username
+    }});
+    if(error)throw error;return data;
 }
 
 async function sbDeleteUser(userId) {
-    const sb = getSupabase();
-    const { error } = await sb.from("users").delete().eq("id", userId);
-    if (error) throw error;
-    return true;
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {error}=await getSupabase().rpc("app_delete_user",{p_token:token,p_user_id:userId});
+    if(error)throw error;return true;
 }
 
-async function sbUpdateUserPassword(userId, newPassword) {
-    const sb = getSupabase();
-    const { error } = await sb.from("users").update({ password: (typeof hashPassword === 'function' ? await hashPassword(newPassword) : newPassword) }).eq("id", userId);
-    if (error) throw error;
-    return true;
+async function sbUpdateUserPassword() {
+    throw new Error("Use secure profile update");
 }
 
-async function sbUpdateUsername(userId, newUsername) {
-    const sb = getSupabase();
-    const { error } = await sb.from("users").update({ username: newUsername }).eq("id", userId);
-    if (error) throw error;
-    return true;
+async function sbUpdateUsername() {
+    throw new Error("Use secure profile update");
 }
 
 /* ---------- SETTINGS ---------- */
+async function sbUpdateOwnProfile(currentPassword,newUsername,newPassword,recoveryEmail) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_update_own_profile",{
+      p_token:token,p_current_password:currentPassword||"",p_username:newUsername||"",
+      p_new_password:newPassword||"",p_recovery_email:recoveryEmail||""
+    });
+    if(error)throw error;return data;
+}
+window.sbUpdateOwnProfile=sbUpdateOwnProfile;
+
 async function sbGetSettings(shopId) {
     const sb = getSupabase();
     if (!shopId) return {};
