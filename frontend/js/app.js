@@ -1278,7 +1278,7 @@ async function addUser() {
     if (role === "User") role = "user";
 
     if (!username) { alert("Please Enter Username"); return; }
-    if (password.length < 4) { alert("Password Must Be At Least 4 Characters"); return; }
+    if (password.length < 8) { alert("Password Must Be At Least 8 Characters"); return; }
 
     try {
         await sbAddUser({
