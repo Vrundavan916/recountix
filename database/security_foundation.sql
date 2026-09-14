@@ -786,3 +786,21 @@ drop policy if exists "public_all_shops" on public.shops;
 drop policy if exists "public_all_subscriptions" on public.subscriptions;
 revoke all on public.shops from anon,authenticated;
 revoke all on public.subscriptions from anon,authenticated;
+
+
+create or replace function public.app_get_shops(p_token text)
+returns table(id uuid,name text,code text,contact_number text,email text,address text,logo_url text,
+  is_active boolean,license_expiry date,plan_name text,max_users integer,created_at timestamptz)
+language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_user public.users%rowtype;
+begin
+  select u.* into v_user from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found then raise exception 'invalid_session'; end if;
+  return query select s.id,s.name,s.code,s.contact_number,s.email,s.address,s.logo_url,s.is_active,
+    s.license_expiry,s.plan_name,s.max_users,s.created_at from public.shops s
+    where (v_user.role='super_admin' or s.id=v_user.shop_id) order by s.name;
+end $$;
+revoke all on function public.app_get_shops(text) from public;
+grant execute on function public.app_get_shops(text) to anon,authenticated;
