@@ -522,93 +522,14 @@ async function sbRecalcAging(shopId) {
 window.sbRecalcAging = sbRecalcAging;
 
 /* ---------- PROMISE TO PAY ---------- */
-async function sbGetPtp(shopId, status) {
-    const sb = getSupabase();
-    if (!shopId) return [];
-    if (!sb) throw new Error("Supabase not ready");
-    let q = sb.from("promises_to_pay").select("*").order("promised_date", { ascending: true });
-    if (shopId) q = q.eq("shop_id", shopId);
-    if (status && status !== "all") q = q.eq("status", status);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
-}
+async function __collection(action,payload){const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");const {data,error}=await getSupabase().rpc("app_collection",{p_token:token,p_action:action,p_payload:payload||{}});if(error)throw error;return data;}
+async function sbGetPtp(shopId,status){return(await __collection("ptp_list",{status:status||"all"}))||[];}
 
-async function sbSavePtp(row) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = {
-        shop_id: row.shop_id,
-        customer_id: row.customer_id,
-        agent_id: row.agent_id ? String(row.agent_id) : null,
-        promised_amount: Number(row.promised_amount || 0),
-        promised_date: row.promised_date,
-        notes: row.notes || "",
-        status: row.status || "open",
-        updated_at: new Date().toISOString()
-    };
-    if (row.id) {
-        const { data, error } = await sb.from("promises_to_pay").update(payload).eq("id", row.id).select().maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-    payload.created_at = new Date().toISOString();
-    payload.created_by = row.created_by ? String(row.created_by) : null;
-    const { data, error } = await sb.from("promises_to_pay").insert(payload).select().maybeSingle();
-    if (error) throw error;
-    // denormalize on customer
-    try {
-        await sb.from("customers").update({
-            ptp_date: payload.promised_date,
-            ptp_amount: payload.promised_amount,
-            ptp_notes: payload.notes
-        }).eq("id", payload.customer_id);
-    } catch (e) { console.warn("customer ptp fields", e); }
-    return data;
-}
+async function sbSavePtp(row){return await __collection("ptp_save",{id:row.id||null,customer_id:row.customer_id,agent_id:row.agent_id||null,promised_amount:Number(row.promised_amount||0),promised_date:row.promised_date,notes:row.notes||""});}
 
-async function sbUpdatePtpStatus(id, status, extra) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = { status: status, updated_at: new Date().toISOString() };
-    if (status === "broken") payload.broken_at = new Date().toISOString();
-    if (status === "kept") {
-        payload.kept_at = new Date().toISOString();
-        if (extra && extra.kept_recovery_id) payload.kept_recovery_id = extra.kept_recovery_id;
-    }
-    const { data, error } = await sb.from("promises_to_pay").update(payload).eq("id", id).select().maybeSingle();
-    if (error) throw error;
-    // clear customer denorm if closed
-    if (data && (status === "kept" || status === "broken" || status === "cancelled")) {
-        try {
-            await sb.from("customers").update({
-                ptp_date: null, ptp_amount: null, ptp_notes: null
-            }).eq("id", data.customer_id);
-        } catch (e) {}
-    }
-    // escalation on broken
-    if (status === "broken" && data) {
-        try {
-            await sb.from("escalations").insert({
-                shop_id: data.shop_id,
-                customer_id: data.customer_id,
-                reason: "ptp_broken",
-                level: 1,
-                notes: "PTP broken via app. Amount: " + data.promised_amount + " Date: " + data.promised_date,
-                status: "open"
-            });
-        } catch (e) { console.warn("escalation", e); }
-    }
-    return data;
-}
+async function sbUpdatePtpStatus(id,status,extra){return await __collection("ptp_status",{id,status,kept_recovery_id:extra&&extra.kept_recovery_id||null});}
 
-async function sbDeletePtp(id) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const { error } = await sb.from("promises_to_pay").delete().eq("id", id);
-    if (error) throw error;
-    return true;
-}
+async function sbDeletePtp(id){await __collection("ptp_delete",{id});return true;}
 
 window.sbGetPtp = sbGetPtp;
 window.sbSavePtp = sbSavePtp;
@@ -665,26 +586,9 @@ async function sbSaveReceiptRow(row) {
     return data;
 }
 
-async function sbGetEscalations(shopId, status) {
-    const sb = getSupabase();
-    if (!shopId) return [];
-    if (!sb) throw new Error("Supabase not ready");
-    let q = sb.from("escalations").select("*").order("created_at", { ascending: false });
-    if (shopId) q = q.eq("shop_id", shopId);
-    if (status && status !== "all") q = q.eq("status", status);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
-}
+async function sbGetEscalations(shopId,status){return(await __collection("escalation_list",{status:status||"all"}))||[];}
 
-async function sbUpdateEscalation(id, patch) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = Object.assign({}, patch, { updated_at: new Date().toISOString() });
-    const { data, error } = await sb.from("escalations").update(payload).eq("id", id).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbUpdateEscalation(id,patch){return await __collection("escalation_update",{...patch,id});}
 
 async function sbAssignAgent(customerId, agentId, executiveName) {
     const sb = getSupabase();
