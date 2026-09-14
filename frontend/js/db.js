@@ -81,98 +81,27 @@ function mapCustomerToDb(c, shopId) {
     };
 }
 
-async function sbGetCustomers(shopId) {
-    const sb = getSupabase();
-    const token = (typeof getSession === "function" && getSession().sessionToken) || "";
-    if (token) {
-        try {
-            const { data, error } = await sb.rpc("app_get_customers", { p_token: token });
-            if (!error) return (data || []).map(mapCustomerFromDb);
-            console.warn("app_get_customers", error);
-        } catch (e) { console.warn(e); }
-    }
-    if (!shopId) return [];
-    const { data, error } = await sb.from("customers").select("*")
-        .eq("shop_id", shopId)
-        .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data || []).map(mapCustomerFromDb);
+async function sbGetCustomers() {
+    const token=getSession().sessionToken;if(!token)return[];
+    const {data,error}=await getSupabase().rpc("app_get_customers",{p_token:token});
+    if(error)throw error;return(data||[]).map(mapCustomerFromDb);
 }
 
-async function sbSaveCustomer(customer, shopId) {
-    const sb = getSupabase();
-    const payload = mapCustomerToDb(customer, shopId);
-
-    // Force due_date from form (YYYY-MM-DD)
-    const dueRaw = (customer.dueDate !== undefined && customer.dueDate !== null && String(customer.dueDate).trim() !== "")
-        ? String(customer.dueDate).trim().slice(0, 10)
-        : "";
-    if (dueRaw) payload.due_date = dueRaw;
-
-    const hasId = customer.id !== undefined && customer.id !== null && String(customer.id).trim() !== "";
-    const token = (typeof getSession === "function" && getSession().sessionToken) || "";
-
-    // Preferred: SECURITY DEFINER RPC (updates due_date reliably under RLS)
-    if (hasId && token) {
-        try {
-            const { data, error } = await sb.rpc("app_update_customer", {
-                p_token: token,
-                p_customer_id: String(customer.id),
-                p_payload: payload
-            });
-            if (error) throw error;
-            if (data && data.ok === false) throw new Error(data.message || "Update failed");
-            return mapCustomerFromDb({ ...payload, id: customer.id, due_date: dueRaw || payload.due_date });
-        } catch (rpcErr) {
-            console.warn("app_update_customer fallback", rpcErr);
-            // fall through to direct update
-        }
-    }
-
-    if (hasId) {
-        // Direct update — check row count when possible
-        const q = sb.from("customers")
-            .update({ ...payload, updated_at: new Date().toISOString() })
-            .eq("id", customer.id);
-        const { error, count } = await q;
-        if (error) throw error;
-        // Also shop_id match if available
-        return mapCustomerFromDb({ ...payload, id: customer.id });
-    }
-
-    const { error } = await sb.from("customers").insert(payload);
-    if (error) throw error;
-    return mapCustomerFromDb(payload);
+async function sbSaveCustomer(customer) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const payload=mapCustomerToDb(customer,null);
+    delete payload.shop_id;
+    const id=customer.id?String(customer.id):null;
+    const {data,error}=await getSupabase().rpc("app_save_customer",{
+      p_token:token,p_customer_id:id,p_payload:payload
+    });
+    if(error)throw error;return mapCustomerFromDb(data);
 }
 
 async function sbDeleteCustomer(id) {
-    const sb = getSupabase();
-    if (!id) throw new Error("Customer id missing");
-
-    // Delete related rows first (FK) — ignore table-missing errors
-    const childTables = [
-        "recoveries",
-        "promises_to_pay",
-        "agent_activity_log",
-        "escalations",
-        "payment_links",
-        "receipts",
-        "legal_notices",
-        "customer_balances",
-        "reminder_queue"
-    ];
-    for (const table of childTables) {
-        try {
-            const { error } = await sb.from(table).delete().eq("customer_id", id);
-            if (error) console.warn("cleanup " + table, error.message || error);
-        } catch (e) {
-            console.warn("cleanup " + table, e);
-        }
-    }
-
-    const { error, count } = await sb.from("customers").delete({ count: "exact" }).eq("id", id);
-    if (error) throw error;
-    return true;
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {error}=await getSupabase().rpc("app_delete_customer",{p_token:token,p_customer_id:id});
+    if(error)throw error;return true;
 }
 
 /* ---------- RECOVERIES ---------- */
@@ -192,90 +121,30 @@ function mapRecoveryFromDb(row) {
     };
 }
 
-async function sbGetRecoveries(shopId) {
-    const sb = getSupabase();
-    const token = (typeof getSession === "function" && getSession().sessionToken) || "";
-    if (token) {
-        try {
-            const { data, error } = await sb.rpc("app_get_recoveries", { p_token: token });
-            if (!error) {
-                return (data || []).map(mapRecoveryFromDb);
-            }
-        } catch (e) { console.warn(e); }
-    }
-    if (!shopId) return [];
-    const { data, error } = await sb.from("recoveries").select("*")
-        .eq("shop_id", shopId)
-        .order("recovery_date", { ascending: false });
-    if (error) throw error;
-    return (data || []).map(mapRecoveryFromDb);
+async function sbGetRecoveries() {
+    const token=getSession().sessionToken;if(!token)return[];
+    const {data,error}=await getSupabase().rpc("app_get_recoveries",{p_token:token});
+    if(error)throw error;return(data||[]).map(mapRecoveryFromDb);
 }
 
-async function sbSaveRecovery(recovery, shopId) {
-    const sb = getSupabase();
-    const sid = shopId || recovery.shop_id || null;
-    if (!sid) throw new Error("shop_id required for recovery");
-    if (!recovery.customerId && recovery.customerId !== 0) {
-        throw new Error("customer_id required");
-    }
-
-    const payload = {
-        shop_id: sid,
-        customer_id: recovery.customerId,
-        amount: Number(recovery.amount || 0),
-        recovery_date: (recovery.date || new Date().toISOString().split("T")[0]).toString().slice(0, 10),
-        payment_mode: recovery.paymentMode || "Cash",
-        receipt_no: recovery.receiptNo || "",
-        collected_by: recovery.collectedBy || "",
-        remarks: recovery.remarks || ""
-    };
-
-    // RLS: no SELECT on recoveries — insert only (no .select().single())
-    const { error } = await sb.from("recoveries").insert(payload);
-    if (error) throw error;
-    return mapRecoveryFromDb(payload);
+async function sbSaveRecovery(recovery) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const payload={customer_id:recovery.customerId,amount:Number(recovery.amount||0),
+      recovery_date:(recovery.date||"").toString().slice(0,10),
+      payment_mode:recovery.paymentMode||"Cash",receipt_no:recovery.receiptNo||"",
+      collected_by:recovery.collectedBy||"",remarks:recovery.remarks||""};
+    const {data,error}=await getSupabase().rpc("app_save_recovery",{p_token:token,p_payload:payload});
+    if(error)throw error;return mapRecoveryFromDb(data);
 }
 
 async function sbDeleteRecovery(id) {
-    const sb = getSupabase();
-    const { error } = await sb.from("recoveries").delete().eq("id", id);
-    if (error) throw error;
-    return true;
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {error}=await getSupabase().rpc("app_delete_recovery",{p_token:token,p_recovery_id:id});
+    if(error)throw error;return true;
 }
 
-async function sbUpdateCustomerOutstanding(customerId, newOutstanding) {
-    const sb = getSupabase();
-    if (customerId === undefined || customerId === null || String(customerId).trim() === "") {
-        throw new Error("customer id missing for outstanding update");
-    }
-    const val = Math.max(0, Number(newOutstanding) || 0);
-    const payload = {
-        outstanding: val,
-        updated_at: new Date().toISOString()
-    };
-
-    // Prefer RPC if available (same as customer save under RLS)
-    const token = (typeof getSession === "function" && getSession().sessionToken) || "";
-    if (token) {
-        try {
-            const { data, error } = await sb.rpc("app_update_customer", {
-                p_token: token,
-                p_customer_id: String(customerId),
-                p_payload: payload
-            });
-            if (!error && data) return true;
-            if (error) console.warn("app_update_customer outstanding", error);
-        } catch (e) {
-            console.warn("outstanding RPC fallback", e);
-        }
-    }
-
-    const { error } = await sb
-        .from("customers")
-        .update(payload)
-        .eq("id", customerId);
-    if (error) throw error;
-    return true;
+async function sbUpdateCustomerOutstanding() {
+    throw new Error("Outstanding is maintained atomically by the recovery service");
 }
 
 /* ---------- USERS ---------- */
