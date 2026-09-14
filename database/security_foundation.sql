@@ -667,3 +667,122 @@ drop policy if exists "public_all_settings" on public.settings;
 drop policy if exists "public_all_audit_log" on public.audit_log;
 revoke all on public.settings from anon,authenticated;
 revoke all on public.audit_log from anon,authenticated;
+
+
+-- Super Admin company, subscription and dashboard operations.
+create or replace function public.app_superadmin(p_token text,p_action text,p_payload jsonb default '{}'::jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_actor public.users%rowtype; v_shop public.shops%rowtype; v_id uuid; v_sub public.subscriptions%rowtype;
+  v_code text; v_password text;
+begin
+  select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_actor.role<>'super_admin' then raise exception 'access_denied'; end if;
+
+  if p_action='shops' then
+    return coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'code',s.code,
+      'contact_number',s.contact_number,'email',s.email,'address',s.address,'logo_url',s.logo_url,
+      'is_active',s.is_active,'license_expiry',s.license_expiry,'plan_name',s.plan_name,
+      'max_users',s.max_users,'created_at',s.created_at) order by s.name) from public.shops s),'[]'::jsonb);
+
+  elsif p_action='create_shop' then
+    v_code:=upper(regexp_replace(coalesce(p_payload->>'code',''),'\s+','','g'));
+    v_password:=coalesce(p_payload->>'adminPassword','');
+    if length(trim(coalesce(p_payload->>'name','')))<2 then raise exception 'name_required'; end if;
+    if v_code !~ '^[A-Z0-9_-]{2,20}$' then raise exception 'invalid_code'; end if;
+    if length(v_password)<8 then raise exception 'weak_admin_password'; end if;
+    insert into public.shops(name,code,contact_number,email,address,plan_name,license_expiry,max_users,is_active)
+    values(left(trim(p_payload->>'name'),150),v_code,left(coalesce(p_payload->>'contact',''),30),
+      left(coalesce(p_payload->>'email',''),254),left(coalesce(p_payload->>'address',''),1000),
+      left(coalesce(p_payload->>'plan','Basic'),50),nullif(p_payload->>'licenseExpiry','')::date,
+      greatest(1,least(coalesce((p_payload->>'maxUsers')::int,5),1000)),true) returning * into v_shop;
+    if coalesce(p_payload->>'adminUsername','') !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_admin_username'; end if;
+    insert into public.users(username,password,role,shop_id,display_name,is_active)
+    values(trim(p_payload->>'adminUsername'),crypt(v_password,gen_salt('bf',12)),'admin',v_shop.id,
+      left(coalesce(nullif(trim(p_payload->>'adminName'),''),trim(p_payload->>'adminUsername')),150),true);
+    insert into public.settings(shop_id,company_name,software_name,phone,email,address)
+    values(v_shop.id,v_shop.name,'Recountix',v_shop.contact_number,v_shop.email,v_shop.address)
+    on conflict(shop_id) do nothing;
+    if v_shop.license_expiry is not null then
+      insert into public.subscriptions(shop_id,plan_name,amount,start_date,end_date,status)
+      values(v_shop.id,v_shop.plan_name,greatest(coalesce((p_payload->>'amount')::numeric,0),0),
+        current_date,v_shop.license_expiry,'active');
+    end if;
+    insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+    values(v_shop.id,v_actor.id,v_actor.username,'shop.create','shop',v_shop.id::text,'Created shop '||v_shop.name);
+    return to_jsonb(v_shop)-'razorpay_key_secret'-'whatsapp_api_key'-'sms_api_key';
+
+  elsif p_action='update_shop' then
+    v_id:=(p_payload->>'id')::uuid;
+    update public.shops set name=left(trim(p_payload->>'name'),150),
+      contact_number=left(coalesce(p_payload->>'contact',''),30),email=left(coalesce(p_payload->>'email',''),254),
+      address=left(coalesce(p_payload->>'address',''),1000),plan_name=left(coalesce(p_payload->>'plan','Basic'),50),
+      license_expiry=nullif(p_payload->>'licenseExpiry','')::date,
+      max_users=greatest(1,least(coalesce((p_payload->>'maxUsers')::int,5),1000))
+      where id=v_id returning * into v_shop;
+    if not found then raise exception 'shop_not_found'; end if;
+    insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+      values(v_id,v_actor.id,v_actor.username,'shop.update','shop',v_id::text,'Updated shop');
+    return to_jsonb(v_shop)-'razorpay_key_secret'-'whatsapp_api_key'-'sms_api_key';
+
+  elsif p_action='toggle_shop' then
+    v_id:=(p_payload->>'id')::uuid;
+    update public.shops set is_active=coalesce((p_payload->>'is_active')::boolean,false)
+      where id=v_id returning * into v_shop;
+    if not found then raise exception 'shop_not_found'; end if;
+    update public.app_sessions set revoked_at=now() where user_id in
+      (select id from public.users where shop_id=v_id) and v_shop.is_active=false and revoked_at is null;
+    insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+      values(v_id,v_actor.id,v_actor.username,case when v_shop.is_active then 'shop.activate' else 'shop.deactivate' end,
+        'shop',v_id::text,'Shop status changed');
+    return to_jsonb(v_shop)-'razorpay_key_secret'-'whatsapp_api_key'-'sms_api_key';
+
+  elsif p_action='delete_shop' then
+    v_id:=(p_payload->>'id')::uuid;
+    if not exists(select 1 from public.shops where id=v_id) then raise exception 'shop_not_found'; end if;
+    insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+      values(v_id,v_actor.id,v_actor.username,'shop.delete','shop',v_id::text,'Shop permanently deleted');
+    delete from public.shops where id=v_id;
+    return jsonb_build_object('ok',true);
+
+  elsif p_action='subscriptions' then
+    return coalesce((select jsonb_agg(jsonb_build_object('shop',to_jsonb(s)-'razorpay_key_secret'-'whatsapp_api_key'-'sms_api_key',
+      'subscription',case when sub.id is null then null else to_jsonb(sub) end,'endDate',
+      greatest(s.license_expiry,sub.end_date)) order by s.name)
+      from public.shops s left join lateral(select x.* from public.subscriptions x where x.shop_id=s.id
+        order by x.end_date desc limit 1) sub on true),'[]'::jsonb);
+
+  elsif p_action='renew' then
+    v_id:=(p_payload->>'shop_id')::uuid;
+    if not exists(select 1 from public.shops where id=v_id) then raise exception 'shop_not_found'; end if;
+    if nullif(p_payload->>'endDate','')::date<current_date then raise exception 'invalid_end_date'; end if;
+    insert into public.subscriptions(shop_id,plan_name,amount,start_date,end_date,status,remarks)
+    values(v_id,left(coalesce(p_payload->>'plan','Basic'),50),greatest(coalesce((p_payload->>'amount')::numeric,0),0),
+      current_date,(p_payload->>'endDate')::date,'active',left(coalesce(p_payload->>'remarks',''),1000))
+      returning * into v_sub;
+    update public.shops set license_expiry=v_sub.end_date,plan_name=v_sub.plan_name,is_active=true where id=v_id;
+    insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+      values(v_id,v_actor.id,v_actor.username,'subscription.renew','subscription',v_sub.id::text,'Subscription renewed');
+    return to_jsonb(v_sub);
+
+  elsif p_action='stats' then
+    return jsonb_build_object('totalShops',(select count(*) from public.shops),
+      'activeShops',(select count(*) from public.shops where is_active),
+      'inactiveShops',(select count(*) from public.shops where not is_active),
+      'totalCustomers',(select count(*) from public.customers),
+      'totalOutstanding',(select coalesce(sum(outstanding),0) from public.customers),
+      'expiringSoon',(select count(*) from public.shops where license_expiry between current_date and current_date+interval '30 days'),
+      'expired',(select count(*) from public.shops where license_expiry<current_date),
+      'shops',coalesce((select jsonb_agg(to_jsonb(s)-'razorpay_key_secret'-'whatsapp_api_key'-'sms_api_key') from public.shops s),'[]'::jsonb));
+  end if;
+  raise exception 'invalid_action';
+end $$;
+
+revoke all on function public.app_superadmin(text,text,jsonb) from public;
+grant execute on function public.app_superadmin(text,text,jsonb) to anon,authenticated;
+
+drop policy if exists "public_all_shops" on public.shops;
+drop policy if exists "public_all_subscriptions" on public.subscriptions;
+revoke all on public.shops from anon,authenticated;
+revoke all on public.subscriptions from anon,authenticated;
