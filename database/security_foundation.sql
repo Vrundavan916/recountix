@@ -350,3 +350,145 @@ drop policy if exists "ads_public_manage" on public.ads;
 drop policy if exists "ads_public_read" on public.ads;
 revoke all on public.ads from anon,authenticated;
 revoke all on public.system_config from anon,authenticated;
+
+
+-- Tenant-isolated customer and recovery operations.
+create or replace function public.app_get_customers(p_token text)
+returns setof public.customers language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null then return; end if;
+  return query select * from public.customers where shop_id=v_shop order by created_at desc;
+end $$;
+
+create or replace function public.app_save_customer(p_token text,p_customer_id uuid,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid; v_row public.customers%rowtype;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null then raise exception 'invalid_session'; end if;
+  if length(trim(coalesce(p_payload->>'name','')))<1 then raise exception 'name_required'; end if;
+  if coalesce(p_payload->>'mobile','') !~ '^[0-9+ -]{10,16}$' then raise exception 'invalid_mobile'; end if;
+
+  if p_customer_id is null then
+    insert into public.customers(shop_id,name,product_name,father,mobile,alt_mobile,village,taluka,district,address,
+      aadhaar,pan,bill,down_payment,outstanding,executive,followup,status,priority,remarks,auto_reminder,
+      reminder_interval_days,next_reminder_date,due_date)
+    values(v_shop,left(trim(p_payload->>'name'),150),left(coalesce(p_payload->>'product_name',''),150),
+      left(coalesce(p_payload->>'father',''),150),left(p_payload->>'mobile',16),
+      left(coalesce(p_payload->>'alt_mobile',''),16),left(coalesce(p_payload->>'village',''),150),
+      left(coalesce(p_payload->>'taluka',''),150),left(coalesce(p_payload->>'district',''),150),
+      left(coalesce(p_payload->>'address',''),1000),left(coalesce(p_payload->>'aadhaar',''),20),
+      left(coalesce(p_payload->>'pan',''),20),greatest(coalesce((p_payload->>'bill')::numeric,0),0),
+      greatest(coalesce((p_payload->>'down_payment')::numeric,0),0),
+      greatest(coalesce((p_payload->>'outstanding')::numeric,0),0),left(coalesce(p_payload->>'executive',''),150),
+      nullif(p_payload->>'followup','')::date,coalesce(p_payload->>'status','Active'),
+      coalesce(p_payload->>'priority','Low'),left(coalesce(p_payload->>'remarks',''),2000),
+      coalesce((p_payload->>'auto_reminder')::boolean,true),
+      greatest(1,least(coalesce((p_payload->>'reminder_interval_days')::int,3),365)),
+      nullif(p_payload->>'next_reminder_date','')::date,nullif(p_payload->>'due_date','')::date)
+    returning * into v_row;
+  else
+    update public.customers set name=left(trim(p_payload->>'name'),150),
+      product_name=left(coalesce(p_payload->>'product_name',''),150),
+      father=left(coalesce(p_payload->>'father',''),150),mobile=left(p_payload->>'mobile',16),
+      alt_mobile=left(coalesce(p_payload->>'alt_mobile',''),16),village=left(coalesce(p_payload->>'village',''),150),
+      taluka=left(coalesce(p_payload->>'taluka',''),150),district=left(coalesce(p_payload->>'district',''),150),
+      address=left(coalesce(p_payload->>'address',''),1000),aadhaar=left(coalesce(p_payload->>'aadhaar',''),20),
+      pan=left(coalesce(p_payload->>'pan',''),20),bill=greatest(coalesce((p_payload->>'bill')::numeric,0),0),
+      down_payment=greatest(coalesce((p_payload->>'down_payment')::numeric,0),0),
+      executive=left(coalesce(p_payload->>'executive',''),150),followup=nullif(p_payload->>'followup','')::date,
+      status=coalesce(p_payload->>'status','Active'),priority=coalesce(p_payload->>'priority','Low'),
+      remarks=left(coalesce(p_payload->>'remarks',''),2000),
+      auto_reminder=coalesce((p_payload->>'auto_reminder')::boolean,true),
+      reminder_interval_days=greatest(1,least(coalesce((p_payload->>'reminder_interval_days')::int,3),365)),
+      next_reminder_date=nullif(p_payload->>'next_reminder_date','')::date,
+      due_date=nullif(p_payload->>'due_date','')::date,updated_at=now()
+     where id=p_customer_id and shop_id=v_shop returning * into v_row;
+    if not found then raise exception 'customer_not_found'; end if;
+  end if;
+  return to_jsonb(v_row);
+end $$;
+
+create or replace function public.app_delete_customer(p_token text,p_customer_id uuid)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid; v_role text;
+begin
+  select u.shop_id,u.role into v_shop,v_role from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null or v_role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  delete from public.customers where id=p_customer_id and shop_id=v_shop;
+end $$;
+
+create or replace function public.app_get_recoveries(p_token text)
+returns setof public.recoveries language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null then return; end if;
+  return query select * from public.recoveries where shop_id=v_shop order by recovery_date desc,created_at desc;
+end $$;
+
+create or replace function public.app_save_recovery(p_token text,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid; v_customer public.customers%rowtype; v_row public.recoveries%rowtype; v_amount numeric;
+begin
+  select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null then raise exception 'invalid_session'; end if;
+  v_amount:=coalesce((p_payload->>'amount')::numeric,0);
+  if v_amount<0 then raise exception 'invalid_amount'; end if;
+  select * into v_customer from public.customers where id=(p_payload->>'customer_id')::uuid
+    and shop_id=v_shop for update;
+  if not found then raise exception 'customer_not_found'; end if;
+  if v_amount>v_customer.outstanding then raise exception 'amount_exceeds_outstanding'; end if;
+  if v_amount=0 and length(trim(coalesce(p_payload->>'remarks','')))=0 then raise exception 'remarks_required'; end if;
+
+  insert into public.recoveries(shop_id,customer_id,amount,recovery_date,payment_mode,receipt_no,collected_by,remarks)
+  values(v_shop,v_customer.id,v_amount,coalesce(nullif(p_payload->>'recovery_date','')::date,current_date),
+    left(coalesce(p_payload->>'payment_mode','Cash'),30),left(coalesce(p_payload->>'receipt_no',''),100),
+    left(coalesce(p_payload->>'collected_by',''),150),left(coalesce(p_payload->>'remarks',''),2000))
+  returning * into v_row;
+  update public.customers set outstanding=greatest(0,outstanding-v_amount),
+    remarks=case when v_amount=0 then concat_ws(' | ',nullif(remarks,''),
+      '['||v_row.recovery_date::text||'] '||left(p_payload->>'remarks',1000)) else remarks end,
+    updated_at=now() where id=v_customer.id;
+  return to_jsonb(v_row);
+end $$;
+
+create or replace function public.app_delete_recovery(p_token text,p_recovery_id uuid)
+returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_shop uuid; v_role text; v_row public.recoveries%rowtype;
+begin
+  select u.shop_id,u.role into v_shop,v_role from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_shop is null or v_role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  select * into v_row from public.recoveries where id=p_recovery_id and shop_id=v_shop for update;
+  if not found then raise exception 'recovery_not_found'; end if;
+  update public.customers set outstanding=outstanding+v_row.amount,updated_at=now()
+   where id=v_row.customer_id and shop_id=v_shop;
+  delete from public.recoveries where id=v_row.id;
+end $$;
+
+revoke all on function public.app_get_customers(text) from public;
+revoke all on function public.app_save_customer(text,uuid,jsonb) from public;
+revoke all on function public.app_delete_customer(text,uuid) from public;
+revoke all on function public.app_get_recoveries(text) from public;
+revoke all on function public.app_save_recovery(text,jsonb) from public;
+revoke all on function public.app_delete_recovery(text,uuid) from public;
+grant execute on function public.app_get_customers(text) to anon,authenticated;
+grant execute on function public.app_save_customer(text,uuid,jsonb) to anon,authenticated;
+grant execute on function public.app_delete_customer(text,uuid) to anon,authenticated;
+grant execute on function public.app_get_recoveries(text) to anon,authenticated;
+grant execute on function public.app_save_recovery(text,jsonb) to anon,authenticated;
+grant execute on function public.app_delete_recovery(text,uuid) to anon,authenticated;
