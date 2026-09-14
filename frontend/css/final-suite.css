@@ -192,3 +192,55 @@ body > *{position:relative;z-index:1;}
   50%{opacity:.95;transform:translateY(-50%) scale(1.08)}
 }
 @media (prefers-reduced-motion:reduce){.rx-clock-glow{animation:none!important}}
+
+/* =========================================================
+   Recountix Rc.0.05 — Visible Premium Wave Texture v2
+   Stronger than the previous subtle treatment, while keeping
+   forms, tables and cards readable across desktop + mobile.
+   ========================================================= */
+:root{
+  --rx-wave-emerald: rgba(11,107,89,.105);
+  --rx-wave-mint: rgba(22,184,122,.080);
+  --rx-wave-champagne: rgba(196,153,57,.070);
+}
+html,body{min-height:100%;background:#f5f9f7!important;}
+body{
+  background:
+    radial-gradient(ellipse at 8% -8%, rgba(17,150,108,.13) 0, rgba(17,150,108,.045) 24%, transparent 47%),
+    radial-gradient(ellipse at 97% 12%, rgba(202,164,76,.10) 0, rgba(202,164,76,.035) 22%, transparent 44%),
+    linear-gradient(180deg,#f8fbfa 0%,#f2f7f5 52%,#f8faf9 100%) !important;
+  background-attachment:fixed!important;
+}
+body::before{
+  inset:0!important;
+  opacity:1!important;
+  background:
+    radial-gradient(ellipse 66% 14% at -4% 18%, transparent 0 58%, rgba(11,107,89,.10) 58.6% 59.2%, transparent 59.8% 63%, rgba(22,184,122,.060) 63.5% 64%, transparent 64.6%),
+    radial-gradient(ellipse 62% 15% at 104% 47%, transparent 0 58%, rgba(196,153,57,.078) 58.6% 59.15%, transparent 59.75% 63%, rgba(11,107,89,.070) 63.5% 64%, transparent 64.7%),
+    radial-gradient(ellipse 70% 16% at -8% 82%, transparent 0 58%, rgba(22,184,122,.075) 58.6% 59.2%, transparent 59.8% 63%, rgba(196,153,57,.050) 63.5% 64%, transparent 64.7%);
+  -webkit-mask-image:none!important;
+  mask-image:none!important;
+}
+body::after{
+  inset:0!important;
+  opacity:1!important;
+  background:
+    repeating-linear-gradient(112deg,transparent 0 110px,rgba(11,107,89,.018) 111px 112px,transparent 113px 220px),
+    linear-gradient(118deg,transparent 0 12%,rgba(196,153,57,.055) 12.15% 12.32%,transparent 12.5% 76%,rgba(11,107,89,.045) 76.15% 76.35%,transparent 76.55% 100%);
+}
+.wrapper,.main-content,.content,.page-content,.dashboard-container,.dashboard-content{
+  background:transparent!important;
+}
+/* Let a little of the texture show through the major surfaces. */
+.topbar,.header-bar,.page-header,.content-box,.table-section,.analytics-panel,
+.vo-command-strip,.vo-today-panel,.rx-nav-card,.rx-ad-card,.dashboard-grid .card{
+  background-color:rgba(255,255,255,.90)!important;
+}
+@media(max-width:760px){
+  body::before{
+    background:
+      radial-gradient(ellipse 95% 12% at -16% 18%, transparent 0 58%, rgba(11,107,89,.085) 58.7% 59.3%, transparent 60% 64%, rgba(22,184,122,.055) 64.5% 65%, transparent 65.7%),
+      radial-gradient(ellipse 95% 12% at 116% 58%, transparent 0 58%, rgba(196,153,57,.060) 58.7% 59.3%, transparent 60% 64%, rgba(11,107,89,.060) 64.5% 65%, transparent 65.7%);
+  }
+  body::after{opacity:.78!important;}
+}
