@@ -78,6 +78,15 @@ async function sbLogin(username, password) {
             p_username: uname,
             p_password: plain
         });
+        if (!rpcErr && rpcData && rpcData.error) {
+            const messages = {
+                invalid_credentials: "Invalid Username or Password",
+                temporarily_locked: "Too many failed attempts. Try again after 15 minutes.",
+                shop_inactive: "This shop is deactivated. Please contact Super Admin.",
+                license_expired: "The shop license has expired. Contact Super Admin."
+            };
+            return { error: rpcData.error, message: messages[rpcData.error] || "Login failed." };
+        }
         if (!rpcErr && rpcData && rpcData.token) {
             const u = rpcData.user || {};
             let shop = null;
@@ -202,8 +211,42 @@ async function enforceMaintenanceGate(options) {
     if (page.includes("maintenance.html")) return false;
 
     const session = (typeof getSession === "function") ? getSession() : null;
-    // Only a real logged-in Super Admin bypasses maintenance.
-    if (session && session.isLoggedIn && session.role === "super_admin") return false;
+
+    // Every protected-page session must be verified by the server. Local/session
+    // storage values alone never grant a role or access.
+    if (!page.includes("login.html")) {
+        if (!session || !session.isLoggedIn || !session.sessionToken) {
+            try { clearSession(); } catch (_) {}
+            window.location.replace("login.html");
+            return true;
+        }
+        try {
+            const { data, error } = await getSupabase().rpc("app_validate_session", {
+                p_token: session.sessionToken
+            });
+            if (error || !data || data.valid !== true) {
+                try { clearSession(); } catch (_) {}
+                window.location.replace("login.html");
+                return true;
+            }
+            const verified = data.user || {};
+            if (verified.role !== session.role ||
+                String(verified.shop_id || "") !== String(session.shopId || "") ||
+                String(verified.id || "") !== String(session.userId || "")) {
+                try { clearSession(); } catch (_) {}
+                window.location.replace("login.html");
+                return true;
+            }
+        } catch (verifyError) {
+            console.error("Session verification failed", verifyError);
+            try { clearSession(); } catch (_) {}
+            window.location.replace("login.html");
+            return true;
+        }
+    }
+
+    // Only a server-verified Super Admin bypasses maintenance.
+    if (session && session.role === "super_admin") return false;
 
     // Login page remains visible so Super Admin can sign in, but normal-user
     // credentials are blocked separately in login().
