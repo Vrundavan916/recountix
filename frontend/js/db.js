@@ -251,26 +251,9 @@ function updateSupabaseStatusUI(online, text) {
 }
 
 async function supabaseBoot() {
-    try {
-        const sb = getSupabase();
-        if (!sb) {
-            updateSupabaseStatusUI(false, "SDK Missing");
-            return false;
-        }
-        // lightweight ping
-        const { error } = await sb.from("shops").select("id").limit(1);
-        if (error) {
-            console.error("Supabase boot error", error);
-            updateSupabaseStatusUI(false, "Error");
-            return false;
-        }
-        updateSupabaseStatusUI(true, "Online");
-        return true;
-    } catch (e) {
-        console.error(e);
-        updateSupabaseStatusUI(false, "Error");
-        return false;
-    }
+    const sb=getSupabase();if(!sb){updateSupabaseStatusUI(false,"SDK Missing");return false;}
+    const {error}=await sb.rpc("app_maintenance_status");
+    updateSupabaseStatusUI(!error,error?"Error":"Connected");return !error;
 }
 
 // Export
@@ -297,77 +280,8 @@ window.mapCustomerFromDb = mapCustomerFromDb;
 window.mapRecoveryFromDb = mapRecoveryFromDb;
 
 /* ---------- COMPANY / SHOP REGISTRATION ---------- */
-async function sbRegisterShop(form) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-
-    const companyName = (form.companyName || "").trim();
-    const code = (form.code || "").trim().toUpperCase().replace(/\s+/g, "");
-    const contact = (form.contact || "").trim();
-    const email = (form.email || "").trim();
-    const address = (form.address || "").trim();
-    const adminUsername = (form.adminUsername || "").trim();
-    const adminPassword = (form.adminPassword || "").trim();
-    const adminName = (form.adminName || adminUsername).trim();
-
-    if (!companyName) throw new Error("Company name required");
-    if (!code || code.length < 2) throw new Error("Shop code required (min 2 chars, e.g. VO, RJ)");
-    if (!adminUsername) throw new Error("Admin username required");
-    if (!adminPassword || adminPassword.length < 4) throw new Error("Admin password min 4 characters");
-
-    // Check code unique
-    const { data: existingCode } = await sb.from("shops").select("id").eq("code", code).maybeSingle();
-    if (existingCode) throw new Error("Shop code already exists. Choose another code.");
-
-    // Check username unique
-    const { data: existingUser } = await sb.from("users").select("id").eq("username", adminUsername).maybeSingle();
-    if (existingUser) throw new Error("Username already taken. Choose another.");
-
-    // 1) Create shop
-    const { data: shop, error: shopErr } = await sb
-        .from("shops")
-        .insert({
-            name: companyName,
-            code: code,
-            contact_number: contact || null,
-            email: email || null,
-            address: address || null,
-            is_active: true
-        })
-        .select()
-        .single();
-    if (shopErr) throw shopErr;
-
-    // 2) Create admin user for this shop
-    const { data: user, error: userErr } = await sb
-        .from("users")
-        .insert({
-            username: adminUsername,
-            password: (typeof hashPassword === 'function' ? await hashPassword(adminPassword) : adminPassword),
-            role: "admin",
-            shop_id: shop.id,
-            display_name: adminName,
-            is_active: true
-        })
-        .select()
-        .single();
-    if (userErr) {
-        // rollback shop if user fails
-        await sb.from("shops").delete().eq("id", shop.id);
-        throw userErr;
-    }
-
-    // 3) Create settings row
-    await sb.from("settings").upsert({
-        shop_id: shop.id,
-        company_name: companyName,
-        software_name: "Recountix",
-        phone: contact || null,
-        email: email || null,
-        address: address || null
-    }, { onConflict: "shop_id" });
-
-    return { shop, user };
+async function sbRegisterShop() {
+    throw new Error("Public company registration is disabled. Use Super Admin Company Management.");
 }
 
 window.sbRegisterShop = sbRegisterShop;
@@ -456,16 +370,10 @@ window.sbRenewSubscription = sbRenewSubscription;
 window.sbGetSuperDashboardStats = sbGetSuperDashboardStats;
 
 
-async function sbMarkReminderSent(customerId, nextDate) {
-    const sb = getSupabase();
-    const payload = {
-        last_reminder_at: new Date().toISOString(),
-        next_reminder_date: nextDate || null,
-        updated_at: new Date().toISOString()
-    };
-    const { error } = await sb.from("customers").update(payload).eq("id", customerId);
-    if (error) throw error;
-    return true;
+async function sbMarkReminderSent(customerId,nextDate) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {error}=await getSupabase().rpc("app_mark_reminder",{p_token:token,p_customer_id:customerId,p_next_date:nextDate||null});
+    if(error)throw error;return true;
 }
 window.sbMarkReminderSent = sbMarkReminderSent;
 
