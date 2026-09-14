@@ -228,18 +228,12 @@ async function sbSetMaintenanceMode(enabled, message) {
 }
 
 /* ---------- BULK IMPORT ---------- */
-async function sbBulkInsertCustomers(list, shopId) {
-    const sb = getSupabase();
-    const rows = list.map(c => mapCustomerToDb(c, shopId));
-    // Insert in chunks of 50
-    const results = [];
-    for (let i = 0; i < rows.length; i += 50) {
-        const chunk = rows.slice(i, i + 50);
-        const { data, error } = await sb.from("customers").insert(chunk).select();
-        if (error) throw error;
-        results.push(...(data || []).map(mapCustomerFromDb));
-    }
-    return results;
+async function __records(action,payload){const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");const {data,error}=await getSupabase().rpc("app_records",{p_token:token,p_action:action,p_payload:payload||{}});if(error)throw error;return data;}
+async function sbBulkInsertCustomers(list){
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const rows=list.map(c=>{const x=mapCustomerToDb(c,null);delete x.shop_id;return x});
+    const {data,error}=await getSupabase().rpc("app_bulk_customers",{p_token:token,p_rows:rows});
+    if(error)throw error;return(data||[]).map(mapCustomerFromDb);
 }
 
 /* ---------- STATUS UI ---------- */
@@ -537,69 +531,15 @@ window.sbUpdatePtpStatus = sbUpdatePtpStatus;
 window.sbDeletePtp = sbDeletePtp;
 
 /* ---------- PHASE 2: Payment links, receipts, escalations, agents ---------- */
-async function sbCreatePaymentLinkRow(row) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = {
-        shop_id: row.shop_id,
-        customer_id: row.customer_id,
-        amount: Number(row.amount || 0),
-        currency: "INR",
-        gateway: row.gateway || "upi",
-        short_url: row.short_url || null,
-        qr_data: row.qr_data || null,
-        status: row.status || "created",
-        notes: row.notes || "",
-        created_by: row.created_by ? String(row.created_by) : null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    };
-    const { data, error } = await sb.from("payment_links").insert(payload).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbCreatePaymentLinkRow(row){return await __records("payment_link_add",row);}
 
-async function sbSaveReceiptRow(row) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    let receiptNo = row.receipt_no;
-    if (!receiptNo && row.shop_id) {
-        try {
-            const { data: rn } = await sb.rpc("next_receipt_no", { p_shop_id: row.shop_id });
-            receiptNo = rn || ("R-" + Date.now());
-        } catch (e) {
-            receiptNo = "R-" + Date.now();
-        }
-    }
-    const payload = {
-        shop_id: row.shop_id,
-        recovery_id: row.recovery_id,
-        customer_id: row.customer_id || null,
-        receipt_no: receiptNo,
-        amount: Number(row.amount || 0),
-        pdf_url: row.pdf_url || null,
-        whatsapp_sent: !!row.whatsapp_sent,
-        created_at: new Date().toISOString()
-    };
-    const { data, error } = await sb.from("receipts").insert(payload).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbSaveReceiptRow(row){return await __records("receipt_add",row);}
 
 async function sbGetEscalations(shopId,status){return(await __collection("escalation_list",{status:status||"all"}))||[];}
 
 async function sbUpdateEscalation(id,patch){return await __collection("escalation_update",{...patch,id});}
 
-async function sbAssignAgent(customerId, agentId, executiveName) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = { updated_at: new Date().toISOString() };
-    if (agentId !== undefined) payload.assigned_agent_id = agentId;
-    if (executiveName !== undefined) payload.executive = executiveName;
-    const { data, error } = await sb.from("customers").update(payload).eq("id", customerId).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbAssignAgent(customerId,agentId,executiveName){return await __records("assign_agent",{customer_id:customerId,agent_id:agentId||null,executive:executiveName||""});}
 
 window.sbCreatePaymentLinkRow = sbCreatePaymentLinkRow;
 window.sbSaveReceiptRow = sbSaveReceiptRow;
@@ -608,62 +548,11 @@ window.sbUpdateEscalation = sbUpdateEscalation;
 window.sbAssignAgent = sbAssignAgent;
 
 /* ---------- PHASE 3: Activity log + analytics helpers ---------- */
-async function sbAddActivity(row) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = {
-        shop_id: row.shop_id,
-        agent_id: String(row.agent_id || ""),
-        customer_id: row.customer_id || null,
-        task_id: row.task_id || null,
-        activity_type: row.activity_type || "note",
-        outcome: row.outcome || "",
-        notes: row.notes || "",
-        gps_lat: row.gps_lat != null ? row.gps_lat : null,
-        gps_lng: row.gps_lng != null ? row.gps_lng : null,
-        duration_sec: row.duration_sec != null ? row.duration_sec : null,
-        created_at: new Date().toISOString()
-    };
-    const { data, error } = await sb.from("agent_activity_log").insert(payload).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbAddActivity(row){return await __records("activity_add",row);}
 
-async function sbGetActivities(shopId, limit) {
-    const sb = getSupabase();
-    if (!shopId) return [];
-    if (!sb) throw new Error("Supabase not ready");
-    let q = sb.from("agent_activity_log").select("*").order("created_at", { ascending: false });
-    if (shopId) q = q.eq("shop_id", shopId);
-    if (limit) q = q.limit(limit);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
-}
+async function sbGetActivities(shopId,limit){return(await __records("activity_list",{limit:limit||100}))||[];}
 
-async function sbSaveLegalNotice(row) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const payload = {
-        shop_id: row.shop_id,
-        customer_id: row.customer_id,
-        notice_type: row.notice_type || "reminder_letter",
-        amount_at_issue: Number(row.amount_at_issue || 0),
-        sent_via: row.sent_via || "print",
-        sent_at: row.sent_at || new Date().toISOString(),
-        created_by: row.created_by ? String(row.created_by) : null,
-        notes: row.notes || "",
-        created_at: new Date().toISOString()
-    };
-    const { data, error } = await sb.from("legal_notices").insert(payload).select().maybeSingle();
-    if (error) throw error;
-    try {
-        await sb.from("customers").update({
-            last_legal_notice_at: new Date().toISOString()
-        }).eq("id", row.customer_id);
-    } catch (e) {}
-    return data;
-}
+async function sbSaveLegalNotice(row){return await __records("legal_add",row);}
 
 window.sbAddActivity = sbAddActivity;
 window.sbGetActivities = sbGetActivities;
@@ -671,29 +560,10 @@ window.sbSaveLegalNotice = sbSaveLegalNotice;
 
 
 
-async function sbGetActivitiesByAgent(shopId, agentId, limit) {
-    const sb = getSupabase();
-    if (!shopId) return [];
-    if (!sb) throw new Error("Supabase not ready");
-    let q = sb.from("agent_activity_log").select("*").order("created_at", { ascending: false });
-    if (shopId) q = q.eq("shop_id", shopId);
-    if (agentId) q = q.eq("agent_id", String(agentId));
-    if (limit) q = q.limit(limit);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
-}
+async function sbGetActivitiesByAgent(shopId,agentId,limit){return(await __records("activity_list",{agent_id:agentId||null,limit:limit||100}))||[];}
 window.sbGetActivitiesByAgent = sbGetActivitiesByAgent;
 
-async function sbSetFieldAgent(userId, isField) {
-    const sb = getSupabase();
-    if (!sb) throw new Error("Supabase not ready");
-    const { data, error } = await sb.from("users").update({
-        is_field_agent: !!isField
-    }).eq("id", userId).select().maybeSingle();
-    if (error) throw error;
-    return data;
-}
+async function sbSetFieldAgent(userId,isField){return await __records("set_field_agent",{user_id:userId,is_field:!!isField});}
 window.sbSetFieldAgent = sbSetFieldAgent;
 
 
