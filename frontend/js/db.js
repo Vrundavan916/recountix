@@ -7,10 +7,9 @@
 
 /* ---------- SHOPS ---------- */
 async function sbGetShops() {
-    const sb = getSupabase();
-    const { data, error } = await sb.from("shops").select("*").eq("is_active", true).order("name");
-    if (error) throw error;
-    return data || [];
+    const token=getSession().sessionToken;if(!token)return[];
+    const {data,error}=await getSupabase().rpc("app_get_shops",{p_token:token});
+    if(error)throw error;return data||[];
 }
 
 /* ---------- CUSTOMERS ---------- */
