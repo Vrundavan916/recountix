@@ -487,3 +487,26 @@ async function sbDeleteAd(id){
 }
 async function sbTrackAdClick(id){try{const token=getSession().sessionToken;if(token)await getSupabase().rpc('app_ad_click',{p_token:token,p_ad_id:id});}catch(e){}}
 window.sbGetActiveAds=sbGetActiveAds;window.sbGetAds=sbGetAds;window.sbSaveAd=sbSaveAd;window.sbDeleteAd=sbDeleteAd;window.sbTrackAdClick=sbTrackAdClick;
+
+
+/* ---------- OFFLINE BUSINESS BACKUP ---------- */
+async function sbExportBusinessBackup(shopId) {
+    const token=getSession().sessionToken;
+    if(!token) throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_backup_export",{
+        p_token:token,p_shop_id:shopId||null
+    });
+    if(error) throw error;
+    return data;
+}
+async function sbRestoreBusinessBackup(backup) {
+    const token=getSession().sessionToken;
+    if(!token) throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_backup_restore",{
+        p_token:token,p_backup:backup
+    });
+    if(error) throw error;
+    return data;
+}
+window.sbExportBusinessBackup=sbExportBusinessBackup;
+window.sbRestoreBusinessBackup=sbRestoreBusinessBackup;
