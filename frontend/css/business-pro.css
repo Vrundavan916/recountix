@@ -266,3 +266,37 @@ body:has(.login-wrap){
   .vo-command-grid{grid-template-columns:1fr!important}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+
+/* Touch interaction hotfix v2
+   Remove the legacy wrapper stacking context so the visible drawer is also
+   above its root-level overlay and receives touch input. */
+html body > .wrapper,
+html body .wrapper{
+  position:relative!important;
+  z-index:auto!important;
+  isolation:auto!important;
+}
+html body .sidebar,
+html body .sidebar .menu,
+html body .sidebar .menu li,
+html body .sidebar .menu a{pointer-events:auto!important}
+html body .sidebar .menu a{
+  position:relative!important;
+  z-index:4!important;
+  -webkit-tap-highlight-color:rgba(230,201,137,.18)!important;
+  touch-action:manipulation!important;
+}
+html body .sidebar-overlay:not(.show){
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+html body .sidebar-overlay.show{display:block!important}
+.login-wrap,.login-card,#loginForm,#loginForm button,#loginForm input,#loginForm label{pointer-events:auto!important}
+#loginBtn{
+  position:relative!important;
+  z-index:5!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:rgba(255,255,255,.18)!important;
+}
