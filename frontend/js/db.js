@@ -240,12 +240,12 @@ async function sbBulkInsertCustomers(list){
 function updateSupabaseStatusUI(online, text) {
     const el = document.getElementById("firebaseStatus");
     if (el) {
-        el.innerHTML = text || (online ? "Online" : "Offline");
+        el.textContent = text || (online ? "Online" : "Offline");
         el.style.color = online ? "#16a34a" : "#ef4444";
     }
     const badge = document.getElementById("dbStatusBadge");
     if (badge) {
-        badge.innerHTML = online ? "Supabase Online" : "Offline";
+        badge.textContent = online ? "Supabase Online" : "Offline";
         badge.className = online ? "badge badge-success" : "badge badge-warning";
     }
 }

@@ -3,6 +3,10 @@
    super-dashboard.html / companies.html / subscription.html
 ========================================================== */
 
+function companyEscape(value) {
+    return escapeHtml(value == null ? "" : String(value));
+}
+
 function fmtMoney(n) {
     return "₹" + Number(n || 0).toLocaleString("en-IN");
 }
@@ -59,17 +63,17 @@ async function loadSuperDashboard() {
             const status = computeSubStatus(shop.license_expiry || shop.endDate);
             return `<tr>
                 <td>${i + 1}</td>
-                <td>${shop.name}</td>
-                <td><span class="rx-business-type">${shop.business_type || "Other"}</span></td>
-                <td>${shop.code}</td>
-                <td>${shop.plan_name || "Basic"}</td>
+                <td>${companyEscape(shop.name)}</td>
+                <td><span class="rx-business-type">${companyEscape(shop.business_type || "Other")}</span></td>
+                <td>${companyEscape(shop.code)}</td>
+                <td>${companyEscape(shop.plan_name || "Basic")}</td>
                 <td>${fmtDate(shop.license_expiry)}</td>
                 <td>${shop.is_active ? statusBadge(status) : '<span class="badge badge-danger">Business Inactive</span>'}</td>
             </tr>`;
         }).join("") || `<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No businesses found</td></tr>`;
     } catch (e) {
         console.error(e);
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef4444;">Failed to load: ${e.message || e}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef4444;">Failed to load: ${companyEscape(e.message || e)}</td></tr>`;
     }
 }
 
@@ -100,11 +104,11 @@ async function loadCompanies() {
             const exp = r.endDate;
             return `<tr>
             <td>${i + 1}</td>
-            <td>${shop.name || ""}</td>
-            <td><span class="rx-business-type">${shop.business_type || "Other"}</span></td>
-            <td>${shop.code || ""}</td>
-            <td>${shop.contact_number || "-"}</td>
-            <td>${(r.subscription && r.subscription.plan_name) || shop.plan_name || "Basic"}</td>
+            <td>${companyEscape(shop.name || "")}</td>
+            <td><span class="rx-business-type">${companyEscape(shop.business_type || "Other")}</span></td>
+            <td>${companyEscape(shop.code || "")}</td>
+            <td>${companyEscape(shop.contact_number || "-")}</td>
+            <td>${companyEscape((r.subscription && r.subscription.plan_name) || shop.plan_name || "Basic")}</td>
             <td>${fmtDate(exp)}</td>
             <td>${shop.is_active
                 ? statusBadge(status)
@@ -118,7 +122,7 @@ async function loadCompanies() {
         }).join("") || `<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No businesses yet</td></tr>`;
     } catch (e) {
         console.error(e);
-        body.innerHTML = `<tr><td colspan="9" style="color:#ef4444;">Failed: ${e.message || e}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" style="color:#ef4444;">Failed: ${companyEscape(e.message || e)}</td></tr>`;
     }
 }
 
@@ -130,10 +134,10 @@ function renderCompaniesTable() {
         const status = computeSubStatus(shop.license_expiry);
         return `<tr>
             <td>${i + 1}</td>
-            <td>${shop.name}</td>
-            <td>${shop.code}</td>
-            <td>${shop.contact_number || "-"}</td>
-            <td>${shop.plan_name || "Basic"}</td>
+            <td>${companyEscape(shop.name)}</td>
+            <td>${companyEscape(shop.code)}</td>
+            <td>${companyEscape(shop.contact_number || "-")}</td>
+            <td>${companyEscape(shop.plan_name || "Basic")}</td>
             <td>${fmtDate(shop.license_expiry)}</td>
             <td>${shop.is_active
                 ? '<span class="badge badge-success">Active</span>'
@@ -299,6 +303,13 @@ window.deleteShopHandler = deleteShopHandler;
 /* ================================
    SUBSCRIPTION PAGE
 ================================ */
+function openRenewShopById(shopId) {
+    const shop = allShopsCache.find((item) => String(item.id) === String(shopId));
+    if (!shop) return;
+    openRenewModal(shop.id, shop.name || "", shop.plan_name || "Basic");
+}
+window.openRenewShopById = openRenewShopById;
+
 async function loadSubscriptions() {
     const body = document.getElementById("subscriptionBody");
     if (!body) return;
@@ -320,8 +331,8 @@ async function loadSubscriptions() {
             const dl = daysLeft(r.endDate);
             return `<tr>
                 <td>${i + 1}</td>
-                <td>${r.shop.name}</td>
-                <td>${(r.subscription && r.subscription.plan_name) || r.shop.plan_name || "Basic"}</td>
+                <td>${companyEscape(r.shop.name)}</td>
+                <td>${companyEscape((r.subscription && r.subscription.plan_name) || r.shop.plan_name || "Basic")}</td>
                 <td>${fmtDate(r.endDate)}</td>
                 <td>${dl === null ? "-" : (dl < 0 ? Math.abs(dl) + " days overdue" : dl + " days")}</td>
                 <td>${statusBadge(r.liveStatus)}</td>
@@ -329,7 +340,7 @@ async function loadSubscriptions() {
                     ? '<span class="badge badge-success">Active</span>'
                     : '<span class="badge badge-danger">Inactive</span>'}</td>
                 <td>
-                    <button class="add-btn" style="padding:8px 14px;font-size:13px;" onclick="openRenewModal('${r.shop.id}', '${(r.shop.name || "").replace(/'/g, "")}', '${r.subscription ? r.subscription.plan_name : (r.shop.plan_name || "Basic")}')">
+                    <button class="add-btn" style="padding:8px 14px;font-size:13px;" onclick="openRenewShopById('${r.shop.id}')">
                         <i class="fa-solid fa-rotate"></i> Renew
                     </button>
                 </td>
@@ -337,7 +348,7 @@ async function loadSubscriptions() {
         }).join("") || `<tr><td colspan="9" style="text-align:center;color:#94a3b8;">No businesses found</td></tr>`;
     } catch (e) {
         console.error(e);
-        body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;">Failed to load: ${e.message || e}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;">Failed to load: ${companyEscape(e.message || e)}</td></tr>`;
     }
 }
 
