@@ -74,7 +74,7 @@ body:not(:has(.login-wrap))::after{display:none!important}
 .sidebar-overlay{background:rgba(7,28,25,.48)!important;backdrop-filter:none!important}
 
 /* Header */
-.main-content{max-width:1600px!important;margin-inline:auto!important}
+.main-content{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important}
 .topbar,.header-bar,.page-header{
   min-height:78px!important;
   padding:14px 18px!important;
@@ -228,4 +228,18 @@ body:has(.login-wrap)::before{
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+/* Desktop full-width correction v3 */
+@media(min-width:993px){
+  html body .wrapper{width:100%!important;max-width:none!important}
+  html body .main-content{width:100%!important;max-width:none!important;margin-inline:0!important}
+  html body .main-content>section,
+  html body .main-content>.content-box,
+  html body .main-content>.table-section,
+  html body .main-content>.dashboard-grid,
+  html body .main-content>.dashboard-cards,
+  html body .main-content>.dashboard-analytics,
+  html body .main-content>.backup-grid,
+  html body .main-content>.backup-panel{width:100%!important;max-width:none!important;box-sizing:border-box!important}
 }
