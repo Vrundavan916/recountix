@@ -314,3 +314,19 @@ body:not(:has(.login-wrap))::after{
   display:none!important;
   background:none!important;
 }
+
+
+/* Sidebar tap reliability v4
+   The dim layer is visual only; V7 closes the drawer on outside pointerdown. */
+html body .sidebar-overlay,
+html body .sidebar-overlay.show{
+  pointer-events:none!important;
+}
+html body .sidebar{
+  isolation:isolate!important;
+  pointer-events:auto!important;
+}
+html body .sidebar a,
+html body .sidebar a *{
+  pointer-events:auto!important;
+}
