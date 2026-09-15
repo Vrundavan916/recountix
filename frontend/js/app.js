@@ -10,6 +10,11 @@ let settings = {};
 let editIndex = -1;
 let editCustomerId = null;
 
+// Escape all database/user text before inserting it into HTML templates.
+function appEscape(value) {
+    return escapeHtml(value == null ? "" : String(value));
+}
+
 // ================================
 // Login
 // ================================
@@ -144,12 +149,12 @@ async function saveCustomer() {
     if (finalShopId) customer.shop_id = finalShopId;
 
     if (!finalShopId && !isSuperAdmin()) {
-        alert("No shop assigned. Contact Super Admin.");
+        alert("No business assigned. Contact Super Admin.");
         return;
     }
 
     if (isSuperAdmin() && !finalShopId) {
-        alert("Super Admin: login as a shop admin to add customers for a specific shop, or set shop context.");
+        alert("Super Admin: login as a Business Admin to manage customers for a specific business.");
         return;
     }
 
@@ -338,12 +343,12 @@ function loadCustomers() {
         tbody.innerHTML += `
         <tr>
             <td>${rowNum}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile || "-"}</td>
-            <td>${customer.village || ""}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile || "-")}</td>
+            <td>${appEscape(customer.village || "")}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
             <td>${agingBadgeHtml(bucket, getCustomerDaysOverdue(customer))}</td>
-            <td>${dueShow}${customer.autoReminder === false ? " 🔕" : ""}</td>
+            <td>${appEscape(dueShow)}${customer.autoReminder === false ? " 🔕" : ""}</td>
             <td style="white-space:nowrap;">
                 <button onclick="viewCustomer(${index})" title="View">👁</button>
                 <button onclick="editCustomer(${index})" title="Edit">✏️</button>
@@ -469,7 +474,7 @@ function buildWhatsAppReminderMessage(customer) {
     const session = (typeof getSession === "function") ? getSession() : {};
     const shopName = (session.shopName)
         || (typeof settings !== "undefined" && settings.company)
-        || "Jewellery Shop";
+        || "Business";
     const name = customer.name || "Customer";
     const outstanding = Number(customer.outstanding || 0).toLocaleString("en-IN");
     const bill = Number(customer.bill || 0).toLocaleString("en-IN");
@@ -485,7 +490,7 @@ function buildWhatsAppReminderMessage(customer) {
         "💰 *Pending Dues: ₹" + outstanding + "*",
         "",
         "Please make payment soon to clear your account.",
-        "After payment, contact the shop for receipt / update.",
+        "After payment, contact the business for receipt or account update.",
         phone ? ("📞 " + phone) : "",
         "",
         "Thank you,",
@@ -685,9 +690,9 @@ function loadRecentCustomers() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile}</td>
-            <td>${customer.village}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile)}</td>
+            <td>${appEscape(customer.village)}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
             <td><span class="badge badge-success">Active</span></td>
         </tr>`;
@@ -703,11 +708,11 @@ function loadDashboardFollowups() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile}</td>
-            <td>${customer.village}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile)}</td>
+            <td>${appEscape(customer.village)}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
-            <td>${customer.followup}</td>
+            <td>${appEscape(customer.followup)}</td>
         </tr>`;
     });
 }
@@ -721,10 +726,10 @@ function loadDashboardRecentRecovery() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.date}</td>
-            <td>${item.remarks || "-"}</td>
+            <td>${appEscape(item.date)}</td>
+            <td>${appEscape(item.remarks || "-")}</td>
         </tr>`;
     });
 }
@@ -771,7 +776,7 @@ async function saveRecovery() {
     if (isSuperAdmin() && cust) finalShopId = cust.shop_id;
 
     if (!finalShopId) {
-        alert("No shop context.");
+        alert("No business context.");
         return;
     }
 
@@ -788,20 +793,7 @@ async function saveRecovery() {
     try {
         await sbSaveRecovery(recovery, finalShopId);
 
-        if (cust && Number(amount.value || 0) > 0) {
-            const newOut = Math.max(0, Number(cust.outstanding || 0) - Number(amount.value));
-            await sbUpdateCustomerOutstanding(cust.id, newOut);
-        }
-        // Also append call note to customer remarks when amount is 0
-        if (cust && Number(amount.value || 0) === 0 && remarks && remarks.value.trim()) {
-            try {
-                const note = "[" + (date.value || "") + "] " + remarks.value.trim();
-                const prev = (cust.remarks || "").trim();
-                const merged = prev ? (prev + " | " + note) : note;
-                const sb = getSupabase();
-                await sb.from("customers").update({ remarks: merged }).eq("id", cust.id);
-            } catch (e) { console.warn("remarks update", e); }
-        }
+        // Outstanding and zero-payment notes are updated atomically by app_save_recovery.
 
         const paidAmt = Number(amount.value || 0);
         const newOutForReceipt = cust ? Math.max(0, Number(cust.outstanding || 0) - paidAmt) : 0;
@@ -852,13 +844,13 @@ function loadRecoveryTable() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.paymentMode || "-"}</td>
-            <td>${item.receiptNo || "-"}</td>
-            <td>${item.date || "-"}</td>
-            <td>${item.collectedBy || "-"}</td>
-            <td>${item.remarks || "-"}</td>
+            <td>${appEscape(item.paymentMode || "-")}</td>
+            <td>${appEscape(item.receiptNo || "-")}</td>
+            <td>${appEscape(item.date || "-")}</td>
+            <td>${appEscape(item.collectedBy || "-")}</td>
+            <td>${appEscape(item.remarks || "-")}</td>
             <td>${deleteBtn}</td>
         </tr>`;
     });
@@ -874,13 +866,7 @@ async function deleteRecovery(index) {
 
     const item = recoveries[index];
     try {
-        if (item) {
-            const customer = (customers || []).find(c => String(c.id) === String(item.customerId));
-            if (customer) {
-                const newOut = Number(customer.outstanding || 0) + Number(item.amount || 0);
-                await sbUpdateCustomerOutstanding(customer.id, newOut);
-            }
-        }
+        // app_delete_recovery restores outstanding in the same database transaction.
         await sbDeleteRecovery(item.id);
         await reloadAllData();
     } catch (e) {
@@ -1005,7 +991,7 @@ function loadReportCustomers() {
     const current = select.value;
     select.innerHTML = `<option value="">All Customers</option>`;
     customers.forEach(customer => {
-        select.innerHTML += `<option value="${customer.id}">${customer.name}</option>`;
+        select.innerHTML += `<option value="${appEscape(customer.id)}">${appEscape(customer.name)}</option>`;
     });
     if (current) select.value = current;
 }
@@ -1024,13 +1010,13 @@ function renderReportRows(list) {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
-            <td>${customer ? (customer.mobile || "-") : "-"}</td>
-            <td>${customer ? (customer.village || "-") : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
+            <td>${appEscape(customer ? (customer.mobile || "-") : "-")}</td>
+            <td>${appEscape(customer ? (customer.village || "-") : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.paymentMode || "-"}</td>
-            <td>${item.date || "-"}</td>
-            <td>${item.collectedBy || "-"}</td>
+            <td>${appEscape(item.paymentMode || "-")}</td>
+            <td>${appEscape(item.date || "-")}</td>
+            <td>${appEscape(item.collectedBy || "-")}</td>
             <td>${status}</td>
         </tr>`;
     });
@@ -1136,8 +1122,8 @@ function updateReportExtraStats(list) {
     if (topCustomer) {
         if (topId) {
             const c = customers.find(x => x.id == topId);
-            topCustomer.innerHTML = c ? c.name : "-";
-        } else topCustomer.innerHTML = "-";
+            topCustomer.textContent = c ? c.name : "-";
+        } else topCustomer.textContent = "-";
     }
     if (highestCollection) highestCollection.innerHTML = formatCurrency(topAmt);
     if (activeCustomers) {
@@ -1239,74 +1225,78 @@ function firebaseFullRestore() { restoreData(); }
 // Settings / Users
 // ================================
 async function saveSettings() {
-    if (typeof readUpiSettingsIntoSettingsObj === 'function') readUpiSettingsIntoSettingsObj();
-    const usernameField = document.getElementById("adminUsername");
-    const currentPasswordField = document.getElementById("currentPassword");
-    const newPasswordField = document.getElementById("newPassword");
-    const confirmPasswordField = document.getElementById("confirmPassword");
-    const recoveryEmailField = document.getElementById("recoveryEmail");
+    if (typeof readUpiSettingsIntoSettingsObj === "function") readUpiSettingsIntoSettingsObj();
+    const usernameField=document.getElementById("adminUsername");
+    const currentPasswordField=document.getElementById("currentPassword");
+    const newPasswordField=document.getElementById("newPassword");
+    const confirmPasswordField=document.getElementById("confirmPassword");
+    const recoveryEmailField=document.getElementById("recoveryEmail");
+    if(!usernameField)return;
 
-    if (!usernameField) return;
+    const session=getSession();
+    const newUsername=usernameField.value.trim();
+    const currentPassword=currentPasswordField?currentPasswordField.value:"";
+    const newPassword=newPasswordField?newPasswordField.value:"";
+    const confirmPassword=confirmPasswordField?confirmPasswordField.value:"";
+    const recoveryEmail=recoveryEmailField?recoveryEmailField.value.trim():"";
 
-    const session = getSession();
-    const newUsername = usernameField.value.trim();
-    if (!newUsername) {
-        alert("Username Cannot Be Empty");
+    if(!newUsername){alert("Username Cannot Be Empty");return;}
+    if(!currentPassword){alert("Enter your current password to save security settings.");return;}
+    if(newPassword!==confirmPassword){alert("New Password And Confirm Password Do Not Match");return;}
+    if(newPassword && newPassword.length<8){alert("New Password Must Be At Least 8 Characters");return;}
+
+    try {
+        await sbUpdateOwnProfile(currentPassword,newUsername,newPassword,recoveryEmail);
+        const activeStore=storage();
+        activeStore.setItem(SESSION_KEYS.username,newUsername);
+
+        if(session.shopId){
+            const s=await sbGetSettings(session.shopId);
+            if(recoveryEmailField)s.recoveryEmail=recoveryEmail;
+            await sbSaveSettings(session.shopId,s);
+            settings=s;
+        }
+
+        if(currentPasswordField)currentPasswordField.value="";
+        if(newPasswordField)newPasswordField.value="";
+        if(confirmPasswordField)confirmPasswordField.value="";
+        alert("Settings Saved Successfully.");
+        await loadUserList();
+    } catch(e){
+        console.error(e);
+        const message=String(e.message||e).includes("invalid_current_password")
+          ?"Current Password Is Incorrect":(e.message||e);
+        alert("Save failed: "+message);
+    }
+}
+
+async function initUserShopSelector() {
+    const wrap = document.getElementById("newUserShopWrap");
+    const select = document.getElementById("newUserShopId");
+    if (!wrap || !select) return;
+
+    if (!isSuperAdmin()) {
+        wrap.style.display = "none";
         return;
     }
 
+    wrap.style.display = "block";
+    select.disabled = true;
+    select.innerHTML = '<option value="">Loading businesses...</option>';
     try {
-        const currentPassword = currentPasswordField ? currentPasswordField.value.trim() : "";
-        const newPassword = newPasswordField ? newPasswordField.value.trim() : "";
-        const confirmPassword = confirmPasswordField ? confirmPasswordField.value.trim() : "";
-
-        if (newPassword !== "" || confirmPassword !== "") {
-            const check = await sbLogin(session.username, currentPassword);
-            if (!check) {
-                alert("Current Password Is Incorrect");
-                return;
-            }
-            setSession(check.user, check.shop ? { name: check.shop.name } : null);
-
-            if (newPassword.length < 4) {
-                alert("New Password Must Be At Least 4 Characters");
-                return;
-            }
-            if (newPassword !== confirmPassword) {
-                alert("New Password And Confirm Password Do Not Match");
-                return;
-            }
-            await sbUpdateUserPassword(session.userId, newPassword);
-        }
-
-        if (newUsername !== session.username) {
-            await sbUpdateUsername(session.userId, newUsername);
-            sessionStorage.setItem("bk_username", newUsername);
-        }
-
-        // Always save recovery email on the user account (works for Super Admin too)
-        if (recoveryEmailField && session.userId) {
-            const re = recoveryEmailField.value.trim();
-            const sb = getSupabase();
-            await sb.from("users").update({ recovery_email: re || null }).eq("id", session.userId);
-        }
-
-        if (session.shopId) {
-            const s = await sbGetSettings(session.shopId);
-            if (recoveryEmailField) s.recoveryEmail = recoveryEmailField.value.trim();
-            await sbSaveSettings(session.shopId, s);
-            settings = s;
-        }
-
-        if (currentPasswordField) currentPasswordField.value = "";
-        if (newPasswordField) newPasswordField.value = "";
-        if (confirmPasswordField) confirmPasswordField.value = "";
-
-        alert("Settings Saved Successfully.");
-        await loadUserList();
+        const shops = await sbGetShops();
+        select.innerHTML = '<option value="">Select Business</option>' +
+            (shops || []).map((shop) =>
+                '<option value="' + escapeHtml(shop.id) + '">' +
+                escapeHtml(shop.name || shop.code || "Unnamed Business") +
+                (shop.code ? " (" + escapeHtml(shop.code) + ")" : "") +
+                '</option>'
+            ).join("");
     } catch (e) {
-        console.error(e);
-        alert("Save failed: " + (e.message || e));
+        console.error("Unable to load businesses for user creation", e);
+        select.innerHTML = '<option value="">Unable to load businesses</option>';
+    } finally {
+        select.disabled = false;
     }
 }
 
@@ -1323,14 +1313,25 @@ async function addUser() {
     if (role === "User") role = "user";
 
     if (!username) { alert("Please Enter Username"); return; }
-    if (password.length < 4) { alert("Password Must Be At Least 4 Characters"); return; }
+    if (password.length < 8) { alert("Password Must Be At Least 8 Characters"); return; }
+
+    const shopSelect = document.getElementById("newUserShopId");
+    const targetShopId = isSuperAdmin()
+        ? (shopSelect ? shopSelect.value : "")
+        : currentShopId();
+    if (!targetShopId) {
+        alert(isSuperAdmin()
+            ? "Please select a Business before adding the user."
+            : "Business assignment is unavailable. Please log in again.");
+        return;
+    }
 
     try {
         await sbAddUser({
             username,
             password,
             role,
-            shop_id: currentShopId(),
+            shop_id: targetShopId,
             display_name: username
         });
         usernameField.value = "";
@@ -1412,14 +1413,14 @@ async function loadUserList() {
             }
             tbody.innerHTML += `
             <tr>
-                <td>${u.username || ""}</td>
-                <td>${u.role || ""}</td>
+                <td>${appEscape(u.username || "")}</td>
+                <td>${appEscape(u.role || "")}</td>
                 <td>${action}</td>
             </tr>`;
         });
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444;">Failed to load users: ${e.message || e}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444;">Failed to load users: ${appEscape(e.message || e)}</td></tr>`;
     }
 }
 
@@ -1454,73 +1455,20 @@ function previewCompanyLogo(event) {
 }
 
 async function saveCompanyBranding() {
-    const session = (typeof getSession === "function") ? getSession() : {};
-    const shopId = (typeof currentShopId === "function") ? currentShopId() : (session.shopId || null);
-    const isSA = (typeof isSuperAdmin === "function" && isSuperAdmin())
-        || session.role === "super_admin"
-        || session.role === "Super Admin"
-        || session.username === "superadmin";
-
-    const companyField = document.getElementById("companyName");
-    const phoneField = document.getElementById("companyMobile") || document.getElementById("contactNumber");
-    const emailField = document.getElementById("companyEmail") || document.getElementById("emailAddress");
-    const addressField = document.getElementById("companyAddress");
-    const softwareField = document.getElementById("softwareName");
-
-    if (typeof settings !== "object" || !settings) window.settings = {};
-
-    if (companyField && companyField.value.trim()) settings.company = companyField.value.trim();
-    if (phoneField && phoneField.value.trim()) settings.phone = phoneField.value.trim();
-    if (emailField && emailField.value.trim()) settings.email = emailField.value.trim();
-    if (addressField && addressField.value.trim()) settings.address = addressField.value.trim();
-    if (softwareField && softwareField.value.trim()) settings.softwareName = softwareField.value.trim();
-
-    const emailVal = (emailField && emailField.value.trim()) || (settings.email || "");
-
-    try {
-        // No shop (Super Admin / missing shop): save recovery email on user
-        if (!shopId) {
-            const uid = session.userId || session.user_id || "";
-            if (!uid) {
-                alert("Session expired. Please logout and login again.");
-                return;
-            }
-            if (!emailVal) {
-                alert("Enter recovery email in Email Address, then Save.");
-                return;
-            }
-            const sb = getSupabase();
-            if (!sb) {
-                alert("Cloud connection failed.");
-                return;
-            }
-            const { error } = await sb.from("users").update({ recovery_email: emailVal }).eq("id", uid);
-            if (error) {
-                // try by username
-                const { error: e2 } = await sb.from("users").update({ recovery_email: emailVal }).eq("username", session.username || "superadmin");
-                if (e2) throw e2;
-            }
-            const reField = document.getElementById("recoveryEmail");
-            if (reField) reField.value = emailVal;
-            alert("✅ Recovery email saved: " + emailVal + "\n\nUse Username + this email on Forgot Password.\n\nNote: Company logo/name is saved by Shop Admin login.");
-            return;
-        }
-
-        await sbSaveSettings(shopId, settings);
-        if (emailVal) {
-            try {
-                const sb = getSupabase();
-                await sb.from("shops").update({ email: emailVal }).eq("id", shopId);
-                if (session.userId) {
-                    await sb.from("users").update({ recovery_email: emailVal }).eq("id", session.userId);
-                }
-            } catch (e) { console.warn(e); }
-        }
-        alert("Company branding saved.");
-    } catch (e) {
-        console.error(e);
-        alert("Save failed: " + (e.message || e));
-    }
+    const session=getSession();const shopId=currentShopId();
+    if(!shopId){alert("Super Admin branding is fixed. Use Account Settings for profile changes.");return;}
+    const companyField=document.getElementById("companyName");
+    const phoneField=document.getElementById("companyMobile")||document.getElementById("contactNumber");
+    const emailField=document.getElementById("companyEmail")||document.getElementById("emailAddress");
+    const addressField=document.getElementById("companyAddress");
+    if(typeof settings!=="object"||!settings)window.settings={};
+    if(companyField)settings.company=companyField.value.trim();
+    if(phoneField)settings.phone=phoneField.value.trim();
+    if(emailField)settings.email=emailField.value.trim();
+    if(addressField)settings.address=addressField.value.trim();
+    settings.softwareName="Recountix";
+    try{await sbSaveSettings(shopId,settings);alert("Company branding saved.");}
+    catch(e){console.error(e);alert("Save failed: "+(e.message||e));}
 }
 
 window.saveCompanyBranding = saveCompanyBranding;
@@ -1568,7 +1516,7 @@ function loadExecutiveListUI() {
     tbody.innerHTML = list.map((e, i) => `
         <tr>
             <td>${i + 1}</td>
-            <td>${e}</td>
+            <td>${appEscape(e)}</td>
             <td>
                 <button type="button" onclick="removeExecutive(${i})" title="Remove"
                     style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">🗑️</button>
@@ -1587,7 +1535,7 @@ async function addExecutive() {
     }
     const shopId = (typeof currentShopId === "function") ? currentShopId() : null;
     if (!shopId) {
-        alert("No shop context. Please login as Shop Admin.");
+        alert("No business context. Please login as Business Admin.");
         return;
     }
     if (typeof settings !== "object" || !settings) settings = {};
@@ -1614,7 +1562,7 @@ async function removeExecutive(index) {
     if (!confirm("Remove this executive?")) return;
     const shopId = (typeof currentShopId === "function") ? currentShopId() : null;
     if (!shopId) {
-        alert("No shop context.");
+        alert("No business context.");
         return;
     }
     if (!Array.isArray(settings.executives)) settings.executives = getExecutivesList();
@@ -1693,7 +1641,7 @@ function applyShopBranding() {
 
     // Reports print header
     const printName = document.getElementById("printCompanyName");
-    if (printName) printName.textContent = company || "Jewellery Shop";
+    if (printName) printName.textContent = company || "Business";
 
     const printLogo = document.querySelector(".print-header img");
     if (printLogo) {
@@ -1787,6 +1735,7 @@ window.addEventListener("load", async function () {
         if (document.getElementById("recoveryEmail") && settings.recoveryEmail) {
             document.getElementById("recoveryEmail").value = settings.recoveryEmail;
         }
+        await initUserShopSelector();
         await loadUserList();
     }
     fillExecutiveDropdowns();
@@ -1847,31 +1796,18 @@ function filterDashboardMetric(type) {
     if (type === "recovery") {
         tb.innerHTML = list.map((r,i) => {
             const cust = (customers||[]).find(c => c.id === r.customerId || c.id === r.customer_id);
-            return `<tr><td>${i+1}</td><td>${(cust&&cust.name)||"-"}</td><td>₹${Number(r.amount||0).toLocaleString("en-IN")}</td><td>${r.date||r.recovery_date||""}</td></tr>`;
+            return `<tr><td>${i+1}</td><td>${appEscape((cust&&cust.name)||"-")}</td><td>₹${Number(r.amount||0).toLocaleString("en-IN")}</td><td>${appEscape(r.date||r.recovery_date||"")}</td></tr>`;
         }).join("") || `<tr><td colspan="4">No records</td></tr>`;
     } else {
         tb.innerHTML = list.map((c,i) =>
-            `<tr><td>${i+1}</td><td>${c.name||""}</td><td>${c.mobile||""}</td><td>₹${Number(c.outstanding||0).toLocaleString("en-IN")}</td><td>${c.followup||""}</td></tr>`
+            `<tr><td>${i+1}</td><td>${appEscape(c.name||"")}</td><td>${appEscape(c.mobile||"")}</td><td>₹${Number(c.outstanding||0).toLocaleString("en-IN")}</td><td>${appEscape(c.followup||"")}</td></tr>`
         ).join("") || `<tr><td colspan="5">No records</td></tr>`;
     }
 }
 window.filterDashboardMetric = filterDashboardMetric;
 
-async function logAudit(action, entityType, entityId, details) {
-    try {
-        const sb = getSupabase();
-        if (!sb) return;
-        const session = getSession();
-        await sb.from("audit_log").insert({
-            shop_id: session.shopId || null,
-            user_id: session.userId || null,
-            username: session.username || "",
-            action: action,
-            entity_type: entityType || "",
-            entity_id: entityId ? String(entityId) : "",
-            details: details || ""
-        });
-    } catch (e) { console.warn("audit", e); }
+async function logAudit(action,entityType,entityId,details) {
+    await sbAddAuditLog(action,entityType,entityId,details);
 }
 window.logAudit = logAudit;
 
@@ -2184,7 +2120,7 @@ async function savePtpForm() {
     const session = (typeof getSession === "function") ? getSession() : {};
     const shopId = session.shopId;
     if (!shopId) {
-        alert("No shop context. Login as shop admin/user.");
+        alert("No business context. Login as Business Admin or User.");
         return;
     }
 
@@ -2305,9 +2241,9 @@ async function markPtpCancelled(id) {
 async function runBrokenPtpCheck() {
     if (!confirm("Process all overdue open PTPs as broken (server function)?")) return;
     try {
-        const sb = getSupabase();
-        if (!sb) throw new Error("Supabase not ready");
-        const { data, error } = await sb.rpc("process_broken_ptp", { p_grace_days: 1 });
+        const token = getSession().sessionToken;
+        if (!token) throw new Error("Secure session required");
+        const { data, error } = await getSupabase().rpc("app_aging", { p_token: token, p_action: "broken_ptp" });
         if (error) throw error;
         alert("Processed. Broken count: " + (data ?? 0));
         await loadPtpTable();
@@ -2363,7 +2299,7 @@ async function openPaymentLinkForCustomer(index) {
     }
     let upiId = upi;
     if (!upiId) {
-        upiId = prompt("Enter the shop UPI ID (e.g. shop@oksbi):\n\n(You can save it in Settings)", "");
+        upiId = prompt("Enter the business UPI ID (e.g. shop@oksbi):\n\n(You can save it in Settings)", "");
         if (!upiId) return;
         try {
             if (typeof settings === "undefined" || !settings) window.settings = {};
@@ -2379,7 +2315,7 @@ async function openPaymentLinkForCustomer(index) {
     const text =
         "Namaste " + (c.name || "") + ",\n\n" +
         "Your outstanding balance: ₹" + amount.toLocaleString("en-IN") + "\n" +
-        "Shop: " + shopName + "\n" +
+        "Business: " + shopName + "\n" +
         "UPI: " + upiId.trim() + "\n\n" +
         "Please keep the receipt after making the payment.\n" +
         "Thank you.";
@@ -2439,7 +2375,7 @@ function printRecoveryReceipt(opts) {
       <div class="row"><span>Mode</span><strong>${opts.mode || "—"}</strong></div>
       <div class="row"><span>Amount</span><span class="amt">₹${Number(opts.amount || 0).toLocaleString("en-IN")}</span></div>
       <div class="row"><span>Outstanding after</span><strong>₹${Number(opts.outstandingAfter || 0).toLocaleString("en-IN")}</strong></div>
-      ${opts.remarks ? '<div class="row"><span>Notes</span><span>' + opts.remarks + "</span></div>" : ""}
+      ${opts.remarks ? '<div class="row"><span>Notes</span><span>' + appEscape(opts.remarks) + "</span></div>" : ""}
     </div>
     <p class="muted" style="margin-top:16px;">Thank you for your payment.</p>
     <button onclick="window.print()">Print</button>
@@ -2584,7 +2520,7 @@ async function saveActivityForm() {
     if (!customerId) { alert("Please select a customer."); return; }
     if (!notes && !outcome) { alert("Please enter notes or an outcome."); return; }
     const session = getSession();
-    if (!session.shopId) { alert("Shop context is unavailable."); return; }
+    if (!session.shopId) { alert("Business context is unavailable."); return; }
 
     let gps_lat = null, gps_lng = null;
     if (document.getElementById("actCaptureGps") && document.getElementById("actCaptureGps").checked) {
@@ -2658,7 +2594,7 @@ async function fillActivityCustomers() {
     if (!sel) return;
     if ((!customers || !customers.length) && typeof reloadAllData === "function") await reloadAllData();
     sel.innerHTML = '<option value="">Select customer</option>' +
-        (customers || []).map(c => `<option value="${c.id}">${c.name || ""} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`).join("");
+        (customers || []).map(c => `<option value="${appEscape(c.id)}">${appEscape(c.name || "")} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`).join("");
 }
 
 async function initActivityPage() {
@@ -2684,15 +2620,15 @@ function openLegalNoticeForCustomer(index) {
     </style></head><body>
     <div class="meta">${shop}<br>Date: ${today}</div>
     <h1>Payment Reminder / Legal Notice</h1>
-    <p>To,<br><strong>${c.name || ""}</strong><br>
-    ${c.address || c.village || ""}<br>
-    Mobile: ${c.mobile || "—"}</p>
+    <p>To,<br><strong>${appEscape(c.name || "")}</strong><br>
+    ${appEscape(c.address || c.village || "")}<br>
+    Mobile: ${appEscape(c.mobile || "—")}</p>
     <p>Subject: <strong>Outstanding dues – ₹${amt.toLocaleString("en-IN")}</strong></p>
     <div class="box">
       <p>This is to inform you that an amount of <strong>₹${amt.toLocaleString("en-IN")}</strong>
       is outstanding against your account. Due / follow-up reference: <strong>${due}</strong>.</p>
       <p>You are requested to clear the dues within <strong>7 days</strong> of this notice.
-      Failing which, further recovery / legal steps may be initiated as per applicable law and shop policy.</p>
+      Failing which, further recovery / legal steps may be initiated as per applicable law and business policy.</p>
     </div>
     <p>This notice is issued without prejudice to other rights and remedies available.</p>
     <p style="margin-top:40px;">For ${shop}<br><br>__________________<br>Authorized Signatory</p>
@@ -2787,7 +2723,7 @@ function renderAnalyticsOnReports() {
             tbody.innerHTML = "<tr><td colspan='4'>No data</td></tr>";
         } else {
             tbody.innerHTML = s.agents.map((a, i) =>
-                `<tr><td>${i + 1}</td><td>${a.name}</td><td>${a.customers}</td>
+                `<tr><td>${i + 1}</td><td>${appEscape(a.name)}</td><td>${Number(a.customers || 0)}</td>
                  <td>${fmt(a.recovered)}</td><td>${fmt(a.outstanding)}</td></tr>`
             ).join("");
         }
@@ -2971,7 +2907,7 @@ async function loadFieldTracking() {
                 const last = a.lastAt ? a.lastAt.slice(0, 16).replace("T", " ") : "—";
                 return `<tr>
                   <td>${i + 1}</td>
-                  <td><strong>${a.name}</strong><br><small style="color:#64748b">${a.username}</small></td>
+                  <td><strong>${appEscape(a.name)}</strong><br><small style="color:#64748b">${appEscape(a.username)}</small></td>
                   <td>${a.assigned}</td>
                   <td>${a.todayActs}</td>
                   <td>${last}</td>
@@ -3008,7 +2944,7 @@ async function loadFieldTracking() {
         if (sel) {
             sel.innerHTML = '<option value="">Select customer</option>' +
                 (customers || []).slice().sort((a, b) => Number(b.outstanding || 0) - Number(a.outstanding || 0))
-                    .map(c => `<option value="${c.id}">${c.name} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`)
+                    .map(c => `<option value="${appEscape(c.id)}">${appEscape(c.name)} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`)
                     .join("");
         }
     } catch (e) {
@@ -3023,7 +2959,7 @@ async function fieldCheckIn() {
     const type = (document.getElementById("fieldCheckinType") || {}).value || "visit";
     if (!customerId) { alert("Please select a customer."); return; }
     const session = getSession();
-    if (!session.shopId) { alert("Shop login is required"); return; }
+    if (!session.shopId) { alert("Business login is required"); return; }
 
     let gps_lat = null, gps_lng = null;
     try {
@@ -3082,7 +3018,7 @@ async function loadEmployeeLinkGenerator() {
     if (!tbody) return;
     const session = getSession();
     if (!session.shopId && session.role !== "super_admin") {
-        tbody.innerHTML = "<tr><td colspan='5'>Shop login required</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='5'>Business login required</td></tr>";
         return;
     }
     tbody.innerHTML = "<tr><td colspan='5'>Loading…</td></tr>";
@@ -3100,7 +3036,7 @@ async function loadEmployeeLinkGenerator() {
             const id = u.id;
             return `<tr>
               <td>${i + 1}</td>
-              <td><strong>${u.display_name || u.username}</strong><br><small>${u.username}</small></td>
+              <td><strong>${appEscape(u.display_name || u.username)}</strong><br><small>${appEscape(u.username)}</small></td>
               <td>
                 <input type="text" id="code_${id}" value="${code.replace(/"/g, "&quot;")}" placeholder="e.g. MUKESH01" style="width:110px;padding:6px;">
               </td>
@@ -3121,26 +3057,18 @@ async function loadEmployeeLinkGenerator() {
 }
 
 async function saveAgentCheckinCreds(userId) {
-    const codeEl = document.getElementById("code_" + userId);
-    const pinEl = document.getElementById("pin_" + userId);
-    const code = (codeEl && codeEl.value || "").trim();
-    const pin = (pinEl && pinEl.value || "").trim();
-    if (!code) { alert("Agent code required"); return; }
-    if (!pin || pin.length < 4) { alert("PIN minimum 4 characters"); return; }
-    try {
-        const sb = getSupabase();
-        const { error } = await sb.from("users").update({
-            agent_code: code,
-            field_pin: pin,
-            is_field_agent: true
-        }).eq("id", userId);
-        if (error) throw error;
-        alert("Saved.\n\nLink:\n" + buildEmployeeCheckinLink(code));
-        await loadEmployeeLinkGenerator();
-        if (typeof loadFieldTracking === "function") loadFieldTracking();
-    } catch (e) {
-        alert("Save failed: " + (e.message || e));
-    }
+    const codeEl=document.getElementById("code_"+userId),pinEl=document.getElementById("pin_"+userId);
+    const code=(codeEl&&codeEl.value||"").trim(),pin=(pinEl&&pinEl.value||"").trim();
+    if(!code){alert("Agent code required");return;}
+    if(pin.length<6){alert("PIN minimum 6 characters");return;}
+    try{
+      const token=getSession().sessionToken;
+      const {error}=await getSupabase().rpc("app_set_agent_credentials",{p_token:token,p_user_id:userId,p_code:code,p_pin:pin});
+      if(error)throw error;
+      if(pinEl)pinEl.value="";
+      alert("Saved.\n\nLink:\n"+buildEmployeeCheckinLink(code));
+      await loadEmployeeLinkGenerator();if(typeof loadFieldTracking==="function")loadFieldTracking();
+    }catch(e){alert("Save failed: "+(e.message||e));}
 }
 
 function copyAgentCheckinLink(userId) {
@@ -3340,9 +3268,9 @@ function enforceSuperAdminDataPrivacy() {
         banner = document.createElement("div");
         banner.id = "saPrivacyBanner";
         banner.style.cssText = "margin:12px 16px;padding:14px 16px;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;color:#92400e;font-size:14px;line-height:1.45;";
-        banner.innerHTML = "<strong>Privacy:</strong> Super Admin cannot view other jewellers' customer / recovery data. " +
-            "Use <a href='super-dashboard.html'>Super Dashboard</a> for shops only. " +
-            "Shop-level data is only for that shop's Admin / Staff login.";
+        banner.innerHTML = "<strong>Privacy:</strong> Super Admin cannot view other businesses' customer / recovery data. " +
+            "Use <a href='super-dashboard.html'>Super Dashboard</a> for businesses only. " +
+            "Shop-level data is only for that business's Admin / Staff login.";
         const main = document.querySelector(".main-content") || document.body;
         main.insertBefore(banner, main.firstChild);
     }

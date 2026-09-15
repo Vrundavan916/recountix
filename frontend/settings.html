@@ -21,6 +21,7 @@
 <meta name="theme-color" content="#1A3D63">
 
 <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://niroqvhpyrwulzwiyctl.supabase.co wss://niroqvhpyrwulzwiyctl.supabase.co; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -36,6 +37,8 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
 <link rel="stylesheet" href="css/saas-2026.css?v=2026c">
 <link rel="stylesheet" href="css/redesign-2026.css?v=11-final">
 <link rel="stylesheet" href="css/final-suite.css?v=rc005-waves-v2">
+<link rel="stylesheet" href="css/business-pro.css?v=5">
+<link rel="stylesheet" href="css/design-v2.css?v=5">
 </head>
 
 <body>
@@ -68,7 +71,7 @@ SIDEBAR START
 <li><a href="field-tracking.html"><i class="fa-solid fa-location-dot"></i><span>Field Tracking</span></a></li>
 <li><a href="reports.html"><i class="fa-solid fa-chart-column"></i><span>Reports</span></a></li>
 <li><a href="settings.html" class="active"><i class="fa-solid fa-gear"></i><span>Settings</span></a></li>
-<li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a></li>
+<li><a href="backup.html"><i class="fa-solid fa-database"></i><span>Offline Backup</span></a></li><li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a></li>
 </ul>
 
 </aside>
@@ -193,7 +196,7 @@ placeholder="Enter Contact Number">
 
 
 <div>
-<label>Shop UPI ID <small>(Payment links)</small></label>
+<label>Business UPI ID <small>(Payment links)</small></label>
 <input type="text" id="upiId" placeholder="shop@oksbi / shop@paytm">
 </div>
 <div>
@@ -438,7 +441,7 @@ PART 3B - USER MANAGEMENT
 
 <section class="table-section fade" id="executiveManagementSection">
     <h2><i class="fa-solid fa-user-tie"></i> Sales / Recovery Executives</h2>
-    <p style="color:#9CA6B8;margin-bottom:16px;">This list will appear in the Customer and Recovery form dropdowns. Shop Admins can add or remove entries.</p>
+    <p style="color:#9CA6B8;margin-bottom:16px;">This list will appear in the Customer and Recovery form dropdowns. Business Admins can add or remove entries.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <input type="text" id="newExecutiveName" class="form-control" placeholder="Executive name (e.g. Ramesh)" style="max-width:280px;">
         <button type="button" class="add-btn" onclick="addExecutive()"><i class="fa-solid fa-plus"></i> Add Executive</button>
@@ -483,7 +486,7 @@ Add Or Remove Staff Logins
 
 <div>
 <label>New Password</label>
-<input type="password" id="newUserPassword" placeholder="Password">
+<input type="password" id="newUserPassword" minlength="8" autocomplete="new-password" placeholder="Minimum 8 characters">
 </div>
 
 <div>
@@ -491,6 +494,13 @@ Add Or Remove Staff Logins
 <select id="newUserRole">
 <option value="User">User (Add/Edit Only)</option>
 <option value="Admin">Admin (Full Access)</option>
+</select>
+</div>
+
+<div id="newUserShopWrap" style="display:none;">
+<label>Business</label>
+<select id="newUserShopId">
+<option value="">Select Business</option>
 </select>
 </div>
 
@@ -1134,11 +1144,11 @@ JAVASCRIPT
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
-<script src="js/utils.js?v=11-final"></script>
-<script src="js/db.js?v=11-final"></script>
-<script src="js/auth.js?v=rc005-ads2"></script>
-<script src="js/app.js?v=11-final"></script>
-<script src="js/company.js"></script>
+<script src="js/utils.js?v=12-sidebar-tap"></script>
+<script src="js/db.js?v=offline-backup-1"></script>
+<script src="js/auth.js?v=business-platform-1"></script>
+<script src="js/app.js?v=security-xss-1"></script>
+<script src="js/company.js?v=security-xss-1"></script>
 <script src="js/excel-import.js"></script>
 
 <script>
@@ -1201,6 +1211,6 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 </script>
 
 <script src="js/final-suite.js?v=11-final"></script>
-</body>
+<script src="js/offline-backup.js?v=1"></script></body>
 
 </html>
