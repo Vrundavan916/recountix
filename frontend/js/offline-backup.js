@@ -1,7 +1,7 @@
 /* Recountix encrypted offline backup engine */
 (function(){
 "use strict";
-const DB_NAME="recountix-offline-v1", DB_VERSION=1, STORE_BACKUPS="backups", STORE_KEYS="keys";
+const DB_NAME="recountix-offline-v1", DB_VERSION=2, STORE_BACKUPS="backups", STORE_KEYS="keys";
 function openDb(){
   return new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
@@ -22,14 +22,15 @@ async function capture(shopId){
   if(typeof sbExportBusinessBackup!=="function")throw new Error("Backup API is unavailable.");
   const data=await sbExportBusinessBackup(shopId||null);
   if(!data||data.format!=="recountix-offline-backup"||!data.shop_id)throw new Error("Invalid backup response.");
-  const key=await deviceKey(),encrypted=await encryptObject(data,key),row={id:"shop:"+data.shop_id,shopId:data.shop_id,shopCode:data.shop_code||"",shopName:data.shop_name||"",createdAt:data.exported_at||new Date().toISOString(),encrypted};
+  const key=await deviceKey(),encrypted=await encryptObject(data,key),createdAt=data.exported_at||new Date().toISOString(),rawBytes=new TextEncoder().encode(JSON.stringify(data)).byteLength,recordCount=Object.values(data.tables||{}).reduce((n,rows)=>n+(Array.isArray(rows)?rows.length:0),0),suffix=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2),row={id:"shop:"+data.shop_id+":"+Date.now()+":"+suffix,shopId:data.shop_id,shopCode:data.shop_code||"",shopName:data.shop_name||"",createdAt,recordCount,byteSize:rawBytes,encrypted};
   await idbPut(STORE_BACKUPS,row);localStorage.setItem("rx_last_backup_"+data.shop_id,row.createdAt);return row;
 }
-async function list(){const d=await openDb();return new Promise((res,rej)=>{const q=d.transaction(STORE_BACKUPS,"readonly").objectStore(STORE_BACKUPS).getAll();q.onsuccess=()=>res((q.result||[]).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));q.onerror=()=>rej(q.error);});}
-async function read(shopId){const row=await idbGet(STORE_BACKUPS,"shop:"+shopId);if(!row)return null;return decryptObject(row.encrypted,await deviceKey());}
-async function makePortable(shopId,passphrase){
+async function list(shopId){const d=await openDb();return new Promise((res,rej)=>{const q=d.transaction(STORE_BACKUPS,"readonly").objectStore(STORE_BACKUPS).getAll();q.onsuccess=()=>{let rows=q.result||[];if(shopId)rows=rows.filter(r=>String(r.shopId)===String(shopId));res(rows.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));};q.onerror=()=>rej(q.error);});}
+async function read(backupId){let row=await idbGet(STORE_BACKUPS,backupId);if(!row)row=await idbGet(STORE_BACKUPS,"shop:"+backupId);if(!row)return null;return decryptObject(row.encrypted,await deviceKey());}
+async function remove(backupId){const d=await openDb();return new Promise((res,rej)=>{const tx=d.transaction(STORE_BACKUPS,"readwrite");tx.objectStore(STORE_BACKUPS).delete(backupId);tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error);});}
+async function makePortable(backupId,passphrase){
   if(String(passphrase||"").length<8)throw new Error("Backup password must be at least 8 characters.");
-  const data=await read(shopId);if(!data)throw new Error("No offline backup found for this business.");
+  const data=await read(backupId);if(!data)throw new Error("Offline backup was not found.");
   const salt=crypto.getRandomValues(new Uint8Array(16)),key=await portableKey(passphrase,salt),enc=await encryptObject(data,key);
   return{format:"recountix-encrypted-file",version:1,kdf:"PBKDF2-SHA256",iterations:250000,salt:b64(salt),iv:enc.iv,cipher:enc.cipher,shop_code:data.shop_code||"",created_at:data.exported_at};
 }
@@ -46,6 +47,6 @@ async function auto(){
 function wrapMutations(){
   ["sbSaveCustomer","sbDeleteCustomer","sbSaveRecovery","sbDeleteRecovery","sbSaveSettings","sbMarkReminder"].forEach(name=>{const fn=window[name];if(typeof fn!=="function"||fn.__rxBackupWrapped)return;const wrapped=async function(){const out=await fn.apply(this,arguments);setTimeout(auto,500);return out;};wrapped.__rxBackupWrapped=true;window[name]=wrapped;});
 }
-window.RecountixOfflineBackup={capture,list,read,makePortable,openPortable,auto};
+window.RecountixOfflineBackup={capture,list,read,remove,makePortable,openPortable,auto};
 window.addEventListener("load",()=>{wrapMutations();setTimeout(auto,1800);},{once:true});
 })();
