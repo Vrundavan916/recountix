@@ -524,3 +524,84 @@ body:has(.login-wrap){background:linear-gradient(145deg,#edf6fb 0,#f9fbfd 52%,#e
   }
   .sidebar .menu a{min-height:46px!important}
 }
+
+
+/* =========================================================
+   Recountix Design V5 — restored brand green palette
+   Keeps V4 balanced layout and compact outline controls.
+   ========================================================= */
+:root{
+  --v5-deep:#073f36;
+  --v5-sidebar:#0b332d;
+  --v5-brand:#0b6b59;
+  --v5-brand-dark:#075447;
+  --v5-accent:#16a77c;
+  --v5-soft:#eaf7f2;
+  --v5-soft-2:#f5faf8;
+  --v5-line:#dce8e3;
+  --v5-canvas:#f3f7f5;
+  --v5-ink:#172a25;
+  --v5-muted:#687a74;
+}
+html{background:var(--v5-canvas)!important}
+body,body:not(:has(.login-wrap)),body:has(.login-wrap){
+  color:var(--v5-ink)!important;
+  background:linear-gradient(180deg,#f8fbfa 0,var(--v5-canvas) 100%)!important;
+}
+.sidebar{
+  background:var(--v5-sidebar)!important;border-right-color:rgba(143,219,196,.14)!important;
+  box-shadow:8px 0 28px rgba(7,63,54,.12)!important;
+}
+.sidebar .logo{border-bottom-color:rgba(171,226,209,.12)!important}
+.sidebar .logo p{color:rgba(220,242,235,.64)!important}
+.sidebar .menu a{color:rgba(230,245,240,.76)!important}
+.sidebar .menu a i{color:#a9dcca!important;background:rgba(22,167,124,.10)!important;border-color:rgba(136,217,192,.08)!important}
+.sidebar .menu a:hover{background:rgba(22,167,124,.12)!important}
+.sidebar .menu a.active{background:linear-gradient(90deg,var(--v5-brand),#13876d)!important;box-shadow:inset 3px 0 0 #89e0c1!important}
+.menu-toggle{background:var(--v5-sidebar)!important;border-color:rgba(137,224,193,.22)!important;box-shadow:0 5px 15px rgba(7,63,54,.18)!important}
+.topbar,.header-bar,.page-header{border-bottom-color:var(--v5-line)!important;box-shadow:0 3px 12px rgba(15,68,54,.035)!important}
+.page-title,.topbar h1{color:var(--v5-deep)!important}.page-subtitle,.topbar p{color:var(--v5-muted)!important}
+.rx-live-clock{border-color:#d1e6de!important;background:var(--v5-soft-2)!important}
+.rx-clock-date{color:#648277!important}.rx-clock-time{color:var(--v5-deep)!important}
+.content-box,.table-section,.backup-panel,.analytics-panel,.vo-command-strip,.vo-today-panel,
+.dashboard-grid .card,.dashboard-cards .card,.action-card,.rx-nav-card{
+  border-color:var(--v5-line)!important;box-shadow:0 5px 18px rgba(15,68,54,.06)!important;
+}
+.summary-bar{background:#f7faf9!important;border-bottom-color:var(--v5-line)!important}
+.card h2,.card h3,.content-box h2,.table-section h2,.backup-panel h2,.summary-bar h2{color:var(--v5-deep)!important}
+.card p,.card span,.backup-note{color:var(--v5-muted)}
+.dashboard-grid .card i,.dashboard-cards .card i,.analytics-head>i,.rx-nav-card>i:first-child{
+  color:var(--v5-brand)!important;background:var(--v5-soft)!important;border-color:#d3ebe2!important;
+}
+.dashboard-grid .card:hover,.dashboard-cards .card:hover,.action-card:hover,.rx-nav-card:hover{
+  border-color:#bddbd0!important;box-shadow:0 9px 24px rgba(11,107,89,.10)!important;
+}
+.analytics-head .eyebrow{color:var(--v5-brand)!important}
+.rx-business-type{background:var(--v5-soft)!important;border-color:#cde7de!important;color:var(--v5-brand-dark)!important}
+.add-btn,.btn-primary,.save-btn,.search-btn,
+.btn-reset,.btn-secondary,.cancel-btn,.action-btn,.vo-mini-btn,.vo-command-btn,.rc-view-details,
+.vo-profile-actions a,.vo-profile-actions button{
+  border-color:#94c9b8!important;background:#fff!important;color:var(--v5-brand-dark)!important;
+}
+.add-btn i,.btn-primary i,.save-btn i,.search-btn i,.btn-reset i,.btn-secondary i,
+.cancel-btn i,.action-btn i,.vo-mini-btn i,.vo-command-btn i,.rc-view-details i{color:var(--v5-brand)!important}
+.add-btn:hover,.btn-primary:hover,.save-btn:hover,.search-btn:hover,
+.btn-reset:hover,.btn-secondary:hover,.cancel-btn:hover,.action-btn:hover,
+.vo-mini-btn:hover,.vo-command-btn:hover,.rc-view-details:hover,
+.vo-profile-actions a:hover,.vo-profile-actions button:hover{
+  background:var(--v5-soft)!important;border-color:#55a98c!important;color:var(--v5-deep)!important;
+}
+button[type="submit"].btn-primary,button[type="submit"].save-btn,.modal .save-btn{
+  background:var(--v5-brand)!important;color:#fff!important;border-color:var(--v5-brand)!important;
+}
+button[type="submit"].btn-primary:hover,button[type="submit"].save-btn:hover,.modal .save-btn:hover{
+  background:var(--v5-brand-dark)!important;border-color:var(--v5-brand-dark)!important;color:#fff!important;
+}
+input,select,textarea,.form-control{border-color:#cfddd8!important;color:var(--v5-ink)!important}
+input:focus,select:focus,textarea:focus,.form-control:focus{
+  border-color:#40a184!important;box-shadow:0 0 0 3px rgba(11,107,89,.12)!important;
+}
+thead th,.vo-today-table thead th{background:var(--v5-deep)!important;color:#eaf7f2!important}
+tbody tr:hover,.vo-today-table tbody tr:hover td{background:#f0f8f5!important}
+body:has(.login-wrap){background:linear-gradient(145deg,#edf7f3 0,#fafcfb 52%,#e2f1ec 100%)!important}
+.login-card,.login-wrap .card{border-color:#d3e4de!important;box-shadow:0 22px 55px rgba(7,63,54,.11)!important}
