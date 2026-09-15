@@ -10,6 +10,11 @@ let settings = {};
 let editIndex = -1;
 let editCustomerId = null;
 
+// Escape all database/user text before inserting it into HTML templates.
+function appEscape(value) {
+    return escapeHtml(value == null ? "" : String(value));
+}
+
 // ================================
 // Login
 // ================================
@@ -338,12 +343,12 @@ function loadCustomers() {
         tbody.innerHTML += `
         <tr>
             <td>${rowNum}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile || "-"}</td>
-            <td>${customer.village || ""}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile || "-")}</td>
+            <td>${appEscape(customer.village || "")}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
             <td>${agingBadgeHtml(bucket, getCustomerDaysOverdue(customer))}</td>
-            <td>${dueShow}${customer.autoReminder === false ? " 🔕" : ""}</td>
+            <td>${appEscape(dueShow)}${customer.autoReminder === false ? " 🔕" : ""}</td>
             <td style="white-space:nowrap;">
                 <button onclick="viewCustomer(${index})" title="View">👁</button>
                 <button onclick="editCustomer(${index})" title="Edit">✏️</button>
@@ -685,9 +690,9 @@ function loadRecentCustomers() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile}</td>
-            <td>${customer.village}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile)}</td>
+            <td>${appEscape(customer.village)}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
             <td><span class="badge badge-success">Active</span></td>
         </tr>`;
@@ -703,11 +708,11 @@ function loadDashboardFollowups() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer.name}</td>
-            <td>${customer.mobile}</td>
-            <td>${customer.village}</td>
+            <td>${appEscape(customer.name)}</td>
+            <td>${appEscape(customer.mobile)}</td>
+            <td>${appEscape(customer.village)}</td>
             <td>₹${Number(customer.outstanding || 0).toLocaleString("en-IN")}</td>
-            <td>${customer.followup}</td>
+            <td>${appEscape(customer.followup)}</td>
         </tr>`;
     });
 }
@@ -721,10 +726,10 @@ function loadDashboardRecentRecovery() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.date}</td>
-            <td>${item.remarks || "-"}</td>
+            <td>${appEscape(item.date)}</td>
+            <td>${appEscape(item.remarks || "-")}</td>
         </tr>`;
     });
 }
@@ -839,13 +844,13 @@ function loadRecoveryTable() {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.paymentMode || "-"}</td>
-            <td>${item.receiptNo || "-"}</td>
-            <td>${item.date || "-"}</td>
-            <td>${item.collectedBy || "-"}</td>
-            <td>${item.remarks || "-"}</td>
+            <td>${appEscape(item.paymentMode || "-")}</td>
+            <td>${appEscape(item.receiptNo || "-")}</td>
+            <td>${appEscape(item.date || "-")}</td>
+            <td>${appEscape(item.collectedBy || "-")}</td>
+            <td>${appEscape(item.remarks || "-")}</td>
             <td>${deleteBtn}</td>
         </tr>`;
     });
@@ -986,7 +991,7 @@ function loadReportCustomers() {
     const current = select.value;
     select.innerHTML = `<option value="">All Customers</option>`;
     customers.forEach(customer => {
-        select.innerHTML += `<option value="${customer.id}">${customer.name}</option>`;
+        select.innerHTML += `<option value="${appEscape(customer.id)}">${appEscape(customer.name)}</option>`;
     });
     if (current) select.value = current;
 }
@@ -1005,13 +1010,13 @@ function renderReportRows(list) {
         tbody.innerHTML += `
         <tr>
             <td>${index + 1}</td>
-            <td>${customer ? customer.name : "-"}</td>
-            <td>${customer ? (customer.mobile || "-") : "-"}</td>
-            <td>${customer ? (customer.village || "-") : "-"}</td>
+            <td>${appEscape(customer ? customer.name : "-")}</td>
+            <td>${appEscape(customer ? (customer.mobile || "-") : "-")}</td>
+            <td>${appEscape(customer ? (customer.village || "-") : "-")}</td>
             <td>₹${Number(item.amount || 0).toLocaleString("en-IN")}</td>
-            <td>${item.paymentMode || "-"}</td>
-            <td>${item.date || "-"}</td>
-            <td>${item.collectedBy || "-"}</td>
+            <td>${appEscape(item.paymentMode || "-")}</td>
+            <td>${appEscape(item.date || "-")}</td>
+            <td>${appEscape(item.collectedBy || "-")}</td>
             <td>${status}</td>
         </tr>`;
     });
@@ -1117,8 +1122,8 @@ function updateReportExtraStats(list) {
     if (topCustomer) {
         if (topId) {
             const c = customers.find(x => x.id == topId);
-            topCustomer.innerHTML = c ? c.name : "-";
-        } else topCustomer.innerHTML = "-";
+            topCustomer.textContent = c ? c.name : "-";
+        } else topCustomer.textContent = "-";
     }
     if (highestCollection) highestCollection.innerHTML = formatCurrency(topAmt);
     if (activeCustomers) {
@@ -1408,14 +1413,14 @@ async function loadUserList() {
             }
             tbody.innerHTML += `
             <tr>
-                <td>${u.username || ""}</td>
-                <td>${u.role || ""}</td>
+                <td>${appEscape(u.username || "")}</td>
+                <td>${appEscape(u.role || "")}</td>
                 <td>${action}</td>
             </tr>`;
         });
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444;">Failed to load users: ${e.message || e}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444;">Failed to load users: ${appEscape(e.message || e)}</td></tr>`;
     }
 }
 
@@ -1511,7 +1516,7 @@ function loadExecutiveListUI() {
     tbody.innerHTML = list.map((e, i) => `
         <tr>
             <td>${i + 1}</td>
-            <td>${e}</td>
+            <td>${appEscape(e)}</td>
             <td>
                 <button type="button" onclick="removeExecutive(${i})" title="Remove"
                     style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">🗑️</button>
@@ -1791,11 +1796,11 @@ function filterDashboardMetric(type) {
     if (type === "recovery") {
         tb.innerHTML = list.map((r,i) => {
             const cust = (customers||[]).find(c => c.id === r.customerId || c.id === r.customer_id);
-            return `<tr><td>${i+1}</td><td>${(cust&&cust.name)||"-"}</td><td>₹${Number(r.amount||0).toLocaleString("en-IN")}</td><td>${r.date||r.recovery_date||""}</td></tr>`;
+            return `<tr><td>${i+1}</td><td>${appEscape((cust&&cust.name)||"-")}</td><td>₹${Number(r.amount||0).toLocaleString("en-IN")}</td><td>${appEscape(r.date||r.recovery_date||"")}</td></tr>`;
         }).join("") || `<tr><td colspan="4">No records</td></tr>`;
     } else {
         tb.innerHTML = list.map((c,i) =>
-            `<tr><td>${i+1}</td><td>${c.name||""}</td><td>${c.mobile||""}</td><td>₹${Number(c.outstanding||0).toLocaleString("en-IN")}</td><td>${c.followup||""}</td></tr>`
+            `<tr><td>${i+1}</td><td>${appEscape(c.name||"")}</td><td>${appEscape(c.mobile||"")}</td><td>₹${Number(c.outstanding||0).toLocaleString("en-IN")}</td><td>${appEscape(c.followup||"")}</td></tr>`
         ).join("") || `<tr><td colspan="5">No records</td></tr>`;
     }
 }
@@ -2370,7 +2375,7 @@ function printRecoveryReceipt(opts) {
       <div class="row"><span>Mode</span><strong>${opts.mode || "—"}</strong></div>
       <div class="row"><span>Amount</span><span class="amt">₹${Number(opts.amount || 0).toLocaleString("en-IN")}</span></div>
       <div class="row"><span>Outstanding after</span><strong>₹${Number(opts.outstandingAfter || 0).toLocaleString("en-IN")}</strong></div>
-      ${opts.remarks ? '<div class="row"><span>Notes</span><span>' + opts.remarks + "</span></div>" : ""}
+      ${opts.remarks ? '<div class="row"><span>Notes</span><span>' + appEscape(opts.remarks) + "</span></div>" : ""}
     </div>
     <p class="muted" style="margin-top:16px;">Thank you for your payment.</p>
     <button onclick="window.print()">Print</button>
@@ -2589,7 +2594,7 @@ async function fillActivityCustomers() {
     if (!sel) return;
     if ((!customers || !customers.length) && typeof reloadAllData === "function") await reloadAllData();
     sel.innerHTML = '<option value="">Select customer</option>' +
-        (customers || []).map(c => `<option value="${c.id}">${c.name || ""} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`).join("");
+        (customers || []).map(c => `<option value="${appEscape(c.id)}">${appEscape(c.name || "")} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`).join("");
 }
 
 async function initActivityPage() {
@@ -2615,9 +2620,9 @@ function openLegalNoticeForCustomer(index) {
     </style></head><body>
     <div class="meta">${shop}<br>Date: ${today}</div>
     <h1>Payment Reminder / Legal Notice</h1>
-    <p>To,<br><strong>${c.name || ""}</strong><br>
-    ${c.address || c.village || ""}<br>
-    Mobile: ${c.mobile || "—"}</p>
+    <p>To,<br><strong>${appEscape(c.name || "")}</strong><br>
+    ${appEscape(c.address || c.village || "")}<br>
+    Mobile: ${appEscape(c.mobile || "—")}</p>
     <p>Subject: <strong>Outstanding dues – ₹${amt.toLocaleString("en-IN")}</strong></p>
     <div class="box">
       <p>This is to inform you that an amount of <strong>₹${amt.toLocaleString("en-IN")}</strong>
@@ -2718,7 +2723,7 @@ function renderAnalyticsOnReports() {
             tbody.innerHTML = "<tr><td colspan='4'>No data</td></tr>";
         } else {
             tbody.innerHTML = s.agents.map((a, i) =>
-                `<tr><td>${i + 1}</td><td>${a.name}</td><td>${a.customers}</td>
+                `<tr><td>${i + 1}</td><td>${appEscape(a.name)}</td><td>${Number(a.customers || 0)}</td>
                  <td>${fmt(a.recovered)}</td><td>${fmt(a.outstanding)}</td></tr>`
             ).join("");
         }
@@ -2902,7 +2907,7 @@ async function loadFieldTracking() {
                 const last = a.lastAt ? a.lastAt.slice(0, 16).replace("T", " ") : "—";
                 return `<tr>
                   <td>${i + 1}</td>
-                  <td><strong>${a.name}</strong><br><small style="color:#64748b">${a.username}</small></td>
+                  <td><strong>${appEscape(a.name)}</strong><br><small style="color:#64748b">${appEscape(a.username)}</small></td>
                   <td>${a.assigned}</td>
                   <td>${a.todayActs}</td>
                   <td>${last}</td>
@@ -2939,7 +2944,7 @@ async function loadFieldTracking() {
         if (sel) {
             sel.innerHTML = '<option value="">Select customer</option>' +
                 (customers || []).slice().sort((a, b) => Number(b.outstanding || 0) - Number(a.outstanding || 0))
-                    .map(c => `<option value="${c.id}">${c.name} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`)
+                    .map(c => `<option value="${appEscape(c.id)}">${appEscape(c.name)} (₹${Number(c.outstanding || 0).toLocaleString("en-IN")})</option>`)
                     .join("");
         }
     } catch (e) {
@@ -3031,7 +3036,7 @@ async function loadEmployeeLinkGenerator() {
             const id = u.id;
             return `<tr>
               <td>${i + 1}</td>
-              <td><strong>${u.display_name || u.username}</strong><br><small>${u.username}</small></td>
+              <td><strong>${appEscape(u.display_name || u.username)}</strong><br><small>${appEscape(u.username)}</small></td>
               <td>
                 <input type="text" id="code_${id}" value="${code.replace(/"/g, "&quot;")}" placeholder="e.g. MUKESH01" style="width:110px;padding:6px;">
               </td>
