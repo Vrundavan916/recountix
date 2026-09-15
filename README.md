@@ -1,16 +1,16 @@
 # Recountix
 
-**Version:** 3.0.0 – Production SaaS (Supabase Multi-Tenant)
+**Version:** Rc.0.05 – Production Candidate (Supabase Multi-Tenant)
 
-Commercial jewellery recovery management for multiple jewellers.  
-Only Super Admin can onboard new companies. No public registration.
+Commercial receivables and recovery management for multiple businesses.  
+Only Super Admin can onboard new businesses. No public registration.
 
 ## Features
 
-- Premium UI (luxury jewellery theme)
-- Supabase-only backend (no LocalStorage / Firebase data)
+- Professional multi-business UI
+- Supabase system of record; encrypted offline backups use IndexedDB
 - Super Admin: dashboard, company CRUD, activate/deactivate, subscriptions, renew
-- Shop Admin / User: customers, recovery, reports, settings (scoped by `shop_id`)
+- Business Admin / User: customers, recovery, reports, settings (server-scoped by `shop_id`)
 - Excel template / bulk import / export
 - Outstanding auto-update on recovery
 - Reports: filter, CSV export, print
@@ -35,7 +35,7 @@ controlled deployment process, use a password manager, and rotate any earlier te
 
 `frontend/js/supabase.js`
 
-- URL: `https://tmgpajynsvpjhpgrziue.supabase.co`
+- URL: `https://niroqvhpyrwulzwiyctl.supabase.co`
 - Anon key: publishable key (already set)
 
 ## Structure
@@ -65,6 +65,14 @@ database/
 - Business tables use deny-by-default RLS; browser access is through scoped RPCs.
 - Tenant identity and roles are derived server-side, never trusted from browser storage.
 - Follow [SECURITY_DEPLOYMENT.md](SECURITY_DEPLOYMENT.md) before any production rollout.
+
+## Rc.0.05 release status
+
+- Functional smoke testing completed
+- Mobile/responsive verification completed
+- Network, invalid-session and error-path checks completed
+- Security regression workflow and GitHub Pages deployment required to pass
+- Per-business encrypted offline backup and restore verified
 
 ## Developed by
 
