@@ -1,7 +1,7 @@
 /* Recountix encrypted offline backup engine */
 (function(){
 "use strict";
-const DB_NAME="recountix-offline-v1", DB_VERSION=2, STORE_BACKUPS="backups", STORE_KEYS="keys";
+const DB_NAME="recountix-offline-v1", DB_VERSION=2, STORE_BACKUPS="backups", STORE_KEYS="keys", AUTO_MS=15*60*1000;
 function openDb(){
   return new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
@@ -17,13 +17,26 @@ function unb64(s){const x=atob(s),u=new Uint8Array(x.length);for(let i=0;i<x.len
 async function encryptObject(obj,key){const iv=crypto.getRandomValues(new Uint8Array(12)),plain=new TextEncoder().encode(JSON.stringify(obj)),cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,plain);return{iv:b64(iv),cipher:b64(cipher)};}
 async function decryptObject(payload,key){const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(payload.iv)},key,unb64(payload.cipher));return JSON.parse(new TextDecoder().decode(plain));}
 async function portableKey(pass,salt){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+function statusKey(shopId){return "rx_backup_status_"+shopId;}
+function setStatus(shopId,state,message,extra){
+  if(!shopId)return;const previous=getStatus(shopId),value=Object.assign({},previous,extra||{},{shopId,state,message,updatedAt:new Date().toISOString()});
+  localStorage.setItem(statusKey(shopId),JSON.stringify(value));
+  window.dispatchEvent(new CustomEvent("recountix:backup-status",{detail:value}));
+}
+function getStatus(shopId){try{return JSON.parse(localStorage.getItem(statusKey(shopId))||"null")||{shopId,state:"idle",message:"No automatic backup status yet."};}catch(e){return{shopId,state:"idle",message:"No automatic backup status yet."};}}
+function setPending(shopId,pending){if(shopId)localStorage.setItem("rx_backup_pending_"+shopId,pending?"true":"false");}
+function isPending(shopId){return localStorage.getItem("rx_backup_pending_"+shopId)==="true";}
 async function capture(shopId){
-  if(!navigator.onLine)throw new Error("Internet is required to create a fresh Supabase backup.");
-  if(typeof sbExportBusinessBackup!=="function")throw new Error("Backup API is unavailable.");
-  const data=await sbExportBusinessBackup(shopId||null);
-  if(!data||data.format!=="recountix-offline-backup"||!data.shop_id)throw new Error("Invalid backup response.");
-  const key=await deviceKey(),encrypted=await encryptObject(data,key),createdAt=data.exported_at||new Date().toISOString(),rawBytes=new TextEncoder().encode(JSON.stringify(data)).byteLength,recordCount=Object.values(data.tables||{}).reduce((n,rows)=>n+(Array.isArray(rows)?rows.length:0),0),suffix=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2),row={id:"shop:"+data.shop_id+":"+Date.now()+":"+suffix,shopId:data.shop_id,shopCode:data.shop_code||"",shopName:data.shop_name||"",createdAt,recordCount,byteSize:rawBytes,encrypted};
-  await idbPut(STORE_BACKUPS,row);localStorage.setItem("rx_last_backup_"+data.shop_id,row.createdAt);return row;
+  const requested=shopId||null;
+  if(!navigator.onLine){setStatus(requested,"waiting","Offline — automatic backup will retry when internet returns.");throw new Error("Internet is required to create a fresh Supabase backup.");}
+  if(typeof sbExportBusinessBackup!=="function"){setStatus(requested,"failed","Backup API is unavailable.");throw new Error("Backup API is unavailable.");}
+  setStatus(requested,"running","Creating encrypted backup…",{lastAttemptAt:new Date().toISOString()});
+  try{
+    const data=await sbExportBusinessBackup(requested);
+    if(!data||data.format!=="recountix-offline-backup"||!data.shop_id)throw new Error("Invalid backup response.");
+    const key=await deviceKey(),encrypted=await encryptObject(data,key),createdAt=data.exported_at||new Date().toISOString(),rawBytes=new TextEncoder().encode(JSON.stringify(data)).byteLength,recordCount=Object.values(data.tables||{}).reduce((n,rows)=>n+(Array.isArray(rows)?rows.length:0),0),suffix=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2),row={id:"shop:"+data.shop_id+":"+Date.now()+":"+suffix,shopId:data.shop_id,shopCode:data.shop_code||"",shopName:data.shop_name||"",createdAt,recordCount,byteSize:rawBytes,encrypted};
+    await idbPut(STORE_BACKUPS,row);localStorage.setItem("rx_last_backup_"+data.shop_id,row.createdAt);setPending(data.shop_id,false);setStatus(data.shop_id,"success","Automatic backup is up to date.",{lastSuccessAt:row.createdAt,recordCount,byteSize:rawBytes});return row;
+  }catch(e){setPending(requested,true);setStatus(requested,"failed",e.message||"Automatic backup failed.",{lastFailureAt:new Date().toISOString()});throw e;}
 }
 async function list(shopId){const d=await openDb();return new Promise((res,rej)=>{const q=d.transaction(STORE_BACKUPS,"readonly").objectStore(STORE_BACKUPS).getAll();q.onsuccess=()=>{let rows=q.result||[];if(shopId)rows=rows.filter(r=>String(r.shopId)===String(shopId));res(rows.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));};q.onerror=()=>rej(q.error);});}
 async function read(backupId){let row=await idbGet(STORE_BACKUPS,backupId);if(!row)row=await idbGet(STORE_BACKUPS,"shop:"+backupId);if(!row)return null;return decryptObject(row.encrypted,await deviceKey());}
@@ -41,12 +54,27 @@ async function openPortable(fileObject,passphrase){
   if(!data||data.format!=="recountix-offline-backup"||!data.shop_id)throw new Error("Invalid backup contents.");
   return data;
 }
-async function auto(){
-  try{if(!navigator.onLine||typeof getSession!=="function")return;const s=getSession();if(!s.isLoggedIn||!s.sessionToken||!s.shopId)return;const last=Date.parse(localStorage.getItem("rx_last_backup_"+s.shopId)||0);if(Date.now()-last<15*60*1000)return;await capture(s.shopId);}catch(e){console.warn("Offline backup skipped:",e.message||e);}
+async function auto(force){
+  try{
+    if(typeof getSession!=="function")return;const s=getSession();if(!s.isLoggedIn||!s.sessionToken||!s.shopId)return;
+    const last=Date.parse(localStorage.getItem("rx_last_backup_"+s.shopId)||0),due=Date.now()-last>=AUTO_MS;
+    if(!navigator.onLine){if(due||isPending(s.shopId)){setPending(s.shopId,true);setStatus(s.shopId,"waiting","Offline — backup will retry automatically.");}return;}
+    if(force&&!due&&!isPending(s.shopId))return;
+    if(!force&&!due)return;
+    await capture(s.shopId);
+  }catch(e){console.warn("Offline backup skipped:",e.message||e);}
+}
+function markChanged(){
+  try{const s=getSession();if(!s.shopId)return;setPending(s.shopId,true);setStatus(s.shopId,"pending","Data changed — encrypted backup is queued.");setTimeout(()=>auto(false),800);}catch(e){}
 }
 function wrapMutations(){
-  ["sbSaveCustomer","sbDeleteCustomer","sbSaveRecovery","sbDeleteRecovery","sbSaveSettings","sbMarkReminder"].forEach(name=>{const fn=window[name];if(typeof fn!=="function"||fn.__rxBackupWrapped)return;const wrapped=async function(){const out=await fn.apply(this,arguments);setTimeout(auto,500);return out;};wrapped.__rxBackupWrapped=true;window[name]=wrapped;});
+  ["sbSaveCustomer","sbDeleteCustomer","sbSaveRecovery","sbDeleteRecovery","sbSaveSettings","sbMarkReminder"].forEach(name=>{const fn=window[name];if(typeof fn!=="function"||fn.__rxBackupWrapped)return;const wrapped=async function(){const out=await fn.apply(this,arguments);markChanged();return out;};wrapped.__rxBackupWrapped=true;window[name]=wrapped;});
 }
-window.RecountixOfflineBackup={capture,list,read,remove,makePortable,openPortable,auto};
-window.addEventListener("load",()=>{wrapMutations();setTimeout(auto,1800);},{once:true});
+function startScheduler(){
+  wrapMutations();setTimeout(()=>auto(false),1800);setInterval(()=>auto(false),60000);
+  window.addEventListener("online",()=>auto(true));
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")auto(false);});
+}
+window.RecountixOfflineBackup={capture,list,read,remove,makePortable,openPortable,auto,getStatus};
+window.addEventListener("load",startScheduler,{once:true});
 })();

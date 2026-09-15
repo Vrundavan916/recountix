@@ -5,9 +5,15 @@ const $=id=>document.getElementById(id);
 function msg(text,type){const el=$("backupStatus");el.textContent=text;el.className="backup-status "+(type||"");}
 function fmt(d){try{return new Date(d).toLocaleString("en-IN")}catch(e){return d||"-"}}
 function size(n){n=Number(n)||0;if(n<1024)return n+" B";if(n<1048576)return(n/1024).toFixed(1)+" KB";return(n/1048576).toFixed(2)+" MB";}
+function renderAutoStatus(){
+ const id=selectedShop(),el=$("autoBackupState");if(!el)return;
+ if(!id){el.textContent="Select one business to view its automatic backup status.";el.className="auto-backup-state idle";return;}
+ const st=RecountixOfflineBackup.getStatus(id),when=st.lastSuccessAt?" Last success: "+fmt(st.lastSuccessAt)+".":"";
+ el.textContent=(st.message||"Automatic backup is ready.")+when;el.className="auto-backup-state "+(st.state||"idle");
+}
 async function shops(){
  const s=getSession(),wrap=$("shopSelectWrap"),sel=$("backupShop");
- if(s.role==="super_admin"){wrap.hidden=false;const rows=await sbGetShops();sel.innerHTML='<option value="">All businesses</option>'+rows.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name||x.code)+'</option>').join("");sel.addEventListener("change",refresh);}
+ if(s.role==="super_admin"){wrap.hidden=false;const rows=await sbGetShops();sel.innerHTML='<option value="">All businesses</option>'+rows.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name||x.code)+'</option>').join("");sel.addEventListener("change",()=>{refresh();renderAutoStatus();});}
  else{wrap.hidden=true;sel.innerHTML='<option value="'+escapeHtml(s.shopId)+'">'+escapeHtml(s.shopName||"My Business")+'</option>';sel.value=s.shopId;}
 }
 function selectedShop(){const s=getSession();return s.role==="super_admin"?$("backupShop").value:s.shopId;}
@@ -17,6 +23,7 @@ async function refresh(){
  body.innerHTML=rows.length?rows.map(r=>'<tr><td>'+escapeHtml(r.shopName||r.shopCode)+'</td><td>'+escapeHtml(r.shopCode)+'</td><td>'+escapeHtml(fmt(r.createdAt))+'</td><td>'+escapeHtml(String(r.recordCount==null?"—":r.recordCount))+'</td><td>'+escapeHtml(size(r.byteSize))+'</td><td><div class="backup-actions"><button type="button" class="add-btn download-local" data-id="'+escapeHtml(r.id)+'">Download</button><button type="button" class="delete-btn delete-local" data-id="'+escapeHtml(r.id)+'">Delete</button></div></td></tr>').join(""):'<tr><td colspan="6">No offline backups for this business yet.</td></tr>';
  body.querySelectorAll(".download-local").forEach(b=>b.addEventListener("click",()=>download(b.dataset.id)));
  body.querySelectorAll(".delete-local").forEach(b=>b.addEventListener("click",()=>removeBackup(b.dataset.id)));
+ renderAutoStatus();
 }
 async function sync(){
  const id=selectedShop();if(!id)return msg("Select one business before creating a backup.","error");
@@ -37,6 +44,6 @@ async function restore(){
  if(!confirm("Restore missing records for "+(data.shop_name||data.shop_code)+"? Existing records will not be overwritten or deleted."))return msg("Restore cancelled.");
  msg("Restoring missing records…");const result=await sbRestoreBusinessBackup(data);msg("Restore completed for this business.","success");await RecountixOfflineBackup.capture(data.shop_id);await refresh();return result;
 }
-async function boot(){try{const s=getSession();if(!s.isLoggedIn)return location.replace("login.html");await shops();await refresh();$("syncBackup").onclick=()=>sync().catch(e=>msg(e.message||String(e),"error"));$("restoreBackup").onclick=()=>restore().catch(e=>msg(e.message==="OperationError"?"Wrong backup password or damaged file.":(e.message||String(e)),"error"));}catch(e){msg(e.message||String(e),"error");}}
+async function boot(){try{const s=getSession();if(!s.isLoggedIn)return location.replace("login.html");await shops();await refresh();window.addEventListener("recountix:backup-status",renderAutoStatus);$("syncBackup").onclick=()=>sync().catch(e=>msg(e.message||String(e),"error"));$("restoreBackup").onclick=()=>restore().catch(e=>msg(e.message==="OperationError"?"Wrong backup password or damaged file.":(e.message||String(e)),"error"));}catch(e){msg(e.message||String(e),"error");}}
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot,{once:true}):boot();
 })();
