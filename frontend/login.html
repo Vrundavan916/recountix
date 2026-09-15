@@ -231,6 +231,17 @@
     .btn-primary:hover{box-shadow:0 18px 38px rgba(11,93,79,.34);}
     .remember input{accent-color:#0B5D4F;}
     body{background:radial-gradient(1100px 500px at 12% -8%,rgba(167,227,211,.55),transparent 60%),radial-gradient(900px 500px at 105% 108%,rgba(15,118,110,.28),transparent 55%),linear-gradient(160deg,#F0FBF7 0%,#D5F2EA 58%,#A7E3D3 100%);}
+  
+    /* Mobile login hardening v5 */
+    @media (max-width:760px), (max-height:700px){
+      body{overflow-y:auto;align-items:flex-start;padding:16px;}
+      .login-wrap{margin:auto;}
+      .card{width:100%;padding:28px 20px 24px;}
+      input{font-size:16px;min-height:48px;}
+      .remember,.forgot-link{min-height:44px;display:inline-flex;align-items:center;}
+      .forgot-link{padding:8px 4px;}
+      .btn-primary{min-height:49px;touch-action:manipulation;}
+    }
   </style>
 <link rel="stylesheet" href="css/final-suite.css?v=rc005-waves-v2">
 </head>
