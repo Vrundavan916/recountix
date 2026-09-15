@@ -1,30 +1,7 @@
 
-/* ========== Password security (SHA-256 + app pepper) ========== */
-const PASSWORD_PEPPER = "VO-RM-v1-";
+/* Password rules are enforced here for UX; hashing is server-side bcrypt only. */
 const MIN_PASSWORD_LEN = 8;
 const MIN_SUPERADMIN_PASSWORD_LEN = 12;
-
-async function hashPassword(plain) {
-    const text = PASSWORD_PEPPER + String(plain || "");
-    if (window.crypto && crypto.subtle) {
-        const data = new TextEncoder().encode(text);
-        const buf = await crypto.subtle.digest("SHA-256", data);
-        return Array.from(new Uint8Array(buf))
-            .map(function (b) { return b.toString(16).padStart(2, "0"); })
-            .join("");
-    }
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-        hash = ((hash << 5) - hash) + text.charCodeAt(i);
-        hash |= 0;
-    }
-    return "fallback_" + Math.abs(hash).toString(16);
-}
-
-function isHashedPassword(stored) {
-    if (!stored || typeof stored !== "string") return false;
-    return /^[a-f0-9]{64}$/i.test(stored.trim());
-}
 
 function validatePasswordStrength(password, role) {
     const p = String(password || "");
@@ -56,8 +33,6 @@ function validatePasswordStrength(password, role) {
     return { ok: true };
 }
 
-window.hashPassword = hashPassword;
-window.isHashedPassword = isHashedPassword;
 window.validatePasswordStrength = validatePasswordStrength;
 
 /* ==========================================================
