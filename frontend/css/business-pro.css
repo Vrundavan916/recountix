@@ -300,3 +300,17 @@ html body .sidebar-overlay.show{display:block!important}
   touch-action:manipulation!important;
   -webkit-tap-highlight-color:rgba(255,255,255,.18)!important;
 }
+
+
+/* Clean background v3 — decorative wave/dot textures removed */
+body:not(:has(.login-wrap)){
+  background-color:var(--rx-bg)!important;
+  background-image:none!important;
+  background-attachment:scroll!important;
+}
+body:not(:has(.login-wrap))::before,
+body:not(:has(.login-wrap))::after{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+}
