@@ -1,6 +1,6 @@
 const CACHE_NAME = 'recountix-offline-backup-v3';
 const CORE = [
-  './backup.html','./css/style.css','./css/final-suite.css','./css/business-pro.css',
+  './backup.html','./css/recountix-2027.css','./css/style.css','./css/final-suite.css','./css/business-pro.css',
   './js/supabase.js','./js/utils.js','./js/db.js','./js/auth.js',
   './js/offline-backup.js','./js/backup.js','./assets/logo.png'
 ];
