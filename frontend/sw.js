@@ -1,4 +1,4 @@
-const CACHE_NAME = 'recountix-offline-backup-v4';
+const CACHE_NAME = 'recountix-offline-backup-v5';
 const CORE = [
   './backup.html','./css/recountix-2027.css','./css/style.css','./css/final-suite.css','./css/business-pro.css',
   './js/supabase.js','./js/utils.js','./js/db.js','./js/auth.js',
