@@ -52,6 +52,7 @@ declare
   v_attempt public.login_attempts%rowtype;
   v_token text;
   v_valid boolean := false;
+  v_maintenance boolean := false;
 begin
   if length(trim(coalesce(p_username,''))) < 1 or length(coalesce(p_password,'')) < 1 then
     return jsonb_build_object('error','invalid_credentials');
@@ -87,6 +88,12 @@ begin
   end if;
 
   delete from public.login_attempts where username = lower(trim(p_username));
+
+  select coalesce(maintenance_mode,false) into v_maintenance
+  from public.system_config where id = 1;
+  if coalesce(v_maintenance,false) and v_user.role <> 'super_admin' then
+    return jsonb_build_object('error','maintenance_mode');
+  end if;
 
   if v_user.password !~ '^\\$2' then
     update public.users
@@ -128,6 +135,8 @@ as $$
 declare
   v_session public.app_sessions%rowtype;
   v_user public.users%rowtype;
+  v_shop public.shops%rowtype;
+  v_maintenance boolean := false;
 begin
   if coalesce(p_token,'') = '' then return jsonb_build_object('valid',false); end if;
   select * into v_session from public.app_sessions
@@ -137,6 +146,26 @@ begin
 
   select * into v_user from public.users where id=v_session.user_id and is_active=true;
   if not found then return jsonb_build_object('valid',false); end if;
+
+  select coalesce(maintenance_mode,false) into v_maintenance
+  from public.system_config where id = 1;
+  if coalesce(v_maintenance,false) and v_user.role <> 'super_admin' then
+    return jsonb_build_object('valid',false,'error','maintenance_mode');
+  end if;
+
+  if v_user.shop_id is not null then
+    select * into v_shop from public.shops where id = v_user.shop_id;
+    if not found and v_user.role <> 'super_admin' then
+      return jsonb_build_object('valid',false,'error','invalid_shop');
+    end if;
+    if found and v_shop.is_active = false and v_user.role <> 'super_admin' then
+      return jsonb_build_object('valid',false,'error','shop_inactive');
+    end if;
+    if found and v_shop.license_expiry is not null
+       and v_shop.license_expiry < current_date and v_user.role <> 'super_admin' then
+      return jsonb_build_object('valid',false,'error','license_expired');
+    end if;
+  end if;
 
   update public.app_sessions set last_seen_at=now() where id=v_session.id;
   return jsonb_build_object(
@@ -181,25 +210,36 @@ revoke all on public.field_sessions from anon, authenticated;
 
 create or replace function public.app_field_login(p_agent_code text, p_pin text)
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
-declare v_user public.users%rowtype; v_token text; v_key text;
+declare v_user public.users%rowtype; v_shop public.shops%rowtype; v_token text; v_key text; v_valid boolean:=false; v_maintenance boolean:=false;
 begin
   v_key := 'field:' || lower(trim(coalesce(p_agent_code,'')));
-  if length(p_pin) < 4 then return jsonb_build_object('error','invalid_credentials'); end if;
+  if length(coalesce(p_pin,'')) < 4 then return jsonb_build_object('error','invalid_credentials'); end if;
   if exists(select 1 from public.login_attempts where username=v_key and locked_until>now()) then
     return jsonb_build_object('error','temporarily_locked');
   end if;
   select * into v_user from public.users where lower(agent_code)=lower(trim(p_agent_code))
     and is_active=true and is_field_agent=true limit 1;
-  if not found or not (
+  if found then
+    v_valid := (
       (v_user.field_pin like '$2%' and extensions.crypt(p_pin,v_user.field_pin)=v_user.field_pin)
       or (v_user.field_pin !~ '^\\$2' and v_user.field_pin=p_pin)
-    ) then
+    );
+  end if;
+  if v_valid is not true then
     insert into public.login_attempts(username,failed_count,locked_until,last_attempt_at)
     values(v_key,1,null,now()) on conflict(username) do update
       set failed_count=public.login_attempts.failed_count+1,
           locked_until=case when public.login_attempts.failed_count+1>=5 then now()+interval '15 minutes' else null end,
           last_attempt_at=now();
     return jsonb_build_object('error','invalid_credentials');
+  end if;
+  select coalesce(maintenance_mode,false) into v_maintenance from public.system_config where id=1;
+  if coalesce(v_maintenance,false) then return jsonb_build_object('error','maintenance_mode'); end if;
+  if v_user.shop_id is null then return jsonb_build_object('error','invalid_shop'); end if;
+  select * into v_shop from public.shops where id=v_user.shop_id;
+  if not found or v_shop.is_active=false then return jsonb_build_object('error','shop_inactive'); end if;
+  if v_shop.license_expiry is not null and v_shop.license_expiry < current_date then
+    return jsonb_build_object('error','license_expired');
   end if;
   delete from public.login_attempts where username=v_key;
   if v_user.field_pin !~ '^\\$2' then
@@ -217,10 +257,13 @@ returns table(id uuid,name text,village text)
 language sql security definer set search_path=public,pg_temp as $$
   select c.id,c.name,c.village from public.field_sessions fs
   join public.users u on u.id=fs.agent_id
+  join public.shops sh on sh.id=u.shop_id and sh.is_active=true
   join public.customers c on c.shop_id=u.shop_id
     and trim(coalesce(c.executive,''))=trim(coalesce(u.display_name,''))
   where fs.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
     and fs.expires_at>now() and u.is_active=true and u.is_field_agent=true
+    and not coalesce((select maintenance_mode from public.system_config where id=1),false)
+    and (sh.license_expiry is null or sh.license_expiry>=current_date)
   order by c.name
 $$;
 
@@ -230,8 +273,11 @@ returns jsonb language plpgsql security definer set search_path=public,pg_temp a
 declare v_user public.users%rowtype; v_ok boolean;
 begin
   select u.* into v_user from public.field_sessions fs join public.users u on u.id=fs.agent_id
+   join public.shops sh on sh.id=u.shop_id and sh.is_active=true
    where fs.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and fs.expires_at>now()
-     and u.is_active=true and u.is_field_agent=true;
+     and u.is_active=true and u.is_field_agent=true
+     and not coalesce((select maintenance_mode from public.system_config where id=1),false)
+     and (sh.license_expiry is null or sh.license_expiry>=current_date);
   if not found then return jsonb_build_object('ok',false,'error','invalid_session'); end if;
   select exists(select 1 from public.customers c where c.id=p_customer_id and c.shop_id=v_user.shop_id
     and trim(coalesce(c.executive,''))=trim(coalesce(v_user.display_name,''))) into v_ok;
@@ -569,11 +615,12 @@ begin
    where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
      and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
+  if coalesce(p_current_password,'')='' then raise exception 'invalid_current_password'; end if;
   if v_user.password like '$2%' then v_valid:=extensions.crypt(p_current_password,v_user.password)=v_user.password;
   elsif v_user.password ~ '^[a-f0-9]{64}$' then
     v_valid:=encode(extensions.digest('VO-RM-v1-'||p_current_password,'sha256'),'hex')=lower(v_user.password);
   end if;
-  if not v_valid then raise exception 'invalid_current_password'; end if;
+  if v_valid is not true then raise exception 'invalid_current_password'; end if;
   v_new_username:=trim(coalesce(nullif(p_username,''),v_user.username));
   if v_new_username !~ '^[A-Za-z0-9._-]{3,50}$' then raise exception 'invalid_username'; end if;
   if coalesce(p_new_password,'')<>'' and length(p_new_password)<8 then raise exception 'weak_password'; end if;
