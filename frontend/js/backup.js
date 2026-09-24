@@ -13,11 +13,11 @@ function renderAutoStatus(){
 }
 async function shops(){
  const s=getSession(),wrap=$("shopSelectWrap"),sel=$("backupShop");
- if(s.role==="super_admin"){wrap.hidden=false;const rows=await sbGetShops();sel.innerHTML='<option value="">All businesses</option>'+rows.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name||x.code)+'</option>').join("");sel.addEventListener("change",()=>{refresh();renderAutoStatus();});}
- else{wrap.hidden=true;sel.innerHTML='<option value="'+escapeHtml(s.shopId)+'">'+escapeHtml(s.shopName||"My Business")+'</option>';sel.value=s.shopId;}
+ if(s.role==="super_admin")throw new Error("Super Admin cannot export or restore business backups. Use a business Administrator login.");
+ wrap.hidden=true;sel.innerHTML='<option value="'+escapeHtml(s.shopId)+'">'+escapeHtml(s.shopName||"My Business")+'</option>';sel.value=s.shopId;
 }
-function selectedShop(){const s=getSession();return s.role==="super_admin"?$("backupShop").value:s.shopId;}
-function visibleShop(){const s=getSession();return s.role==="super_admin"?($("backupShop").value||null):s.shopId;}
+function selectedShop(){return getSession().shopId;}
+function visibleShop(){return getSession().shopId;}
 async function refresh(){
  const rows=await RecountixOfflineBackup.list(visibleShop()),body=$("backupList");
  body.innerHTML=rows.length?rows.map(r=>'<tr><td>'+escapeHtml(r.shopName||r.shopCode)+'</td><td>'+escapeHtml(r.shopCode)+'</td><td>'+escapeHtml(fmt(r.createdAt))+'</td><td>'+escapeHtml(String(r.recordCount==null?"—":r.recordCount))+'</td><td>'+escapeHtml(size(r.byteSize))+'</td><td><div class="backup-actions"><button type="button" class="add-btn download-local" data-id="'+escapeHtml(r.id)+'">Download</button><button type="button" class="delete-btn delete-local" data-id="'+escapeHtml(r.id)+'">Delete</button></div></td></tr>').join(""):'<tr><td colspan="6">No offline backups for this business yet.</td></tr>';
@@ -40,7 +40,7 @@ async function removeBackup(id){
 async function restore(){
  const file=$("restoreFile").files[0],pass=$("restorePass").value;if(!file)return msg("Choose a .rxbackup file.","error");if(pass.length<8)return msg("Enter the backup file password.","error");if(!navigator.onLine)return msg("Internet is required to restore into Supabase.","error");
  msg("Validating encrypted backup…");const pack=JSON.parse(await file.text()),data=await RecountixOfflineBackup.openPortable(pack,pass),s=getSession();
- if(s.role!=="super_admin"&&String(data.shop_id)!==String(s.shopId))throw new Error("This backup belongs to another business.");
+ if(String(data.shop_id)!==String(s.shopId))throw new Error("This backup belongs to another business.");
  if(!confirm("Restore missing records for "+(data.shop_name||data.shop_code)+"? Existing records will not be overwritten or deleted."))return msg("Restore cancelled.");
  msg("Restoring missing records…");const result=await sbRestoreBusinessBackup(data);msg("Restore completed for this business.","success");await RecountixOfflineBackup.capture(data.shop_id);await refresh();return result;
 }
