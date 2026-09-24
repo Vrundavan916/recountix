@@ -19,12 +19,9 @@ begin
     and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
 
-  if v_user.role='super_admin' then
-    v_shop:=coalesce(p_shop_id,v_user.shop_id);
-  else
-    v_shop:=v_user.shop_id;
-    if p_shop_id is not null and p_shop_id<>v_shop then raise exception 'access_denied'; end if;
-  end if;
+  if v_user.role='super_admin' then raise exception 'access_denied'; end if;
+  v_shop:=v_user.shop_id;
+  if p_shop_id is not null and p_shop_id<>v_shop then raise exception 'access_denied'; end if;
   if v_shop is null then raise exception 'shop_required'; end if;
   select * into v_shop_row from public.shops where id=v_shop and is_active=true;
   if not found then raise exception 'invalid_shop'; end if;
@@ -67,12 +64,13 @@ begin
   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
     and s.revoked_at is null and s.expires_at>now() and u.is_active=true;
   if not found then raise exception 'invalid_session'; end if;
+  if v_user.role <> 'admin' then raise exception 'access_denied'; end if;
   if coalesce(p_backup->>'format','')<>'recountix-offline-backup'
      or coalesce((p_backup->>'version')::int,0)<>1 then
     raise exception 'invalid_backup_format';
   end if;
   v_shop:=(p_backup->>'shop_id')::uuid;
-  if v_user.role<>'super_admin' and v_user.shop_id<>v_shop then raise exception 'shop_mismatch'; end if;
+  if v_user.shop_id is null or v_user.shop_id<>v_shop then raise exception 'shop_mismatch'; end if;
   if not exists(select 1 from public.shops where id=v_shop and is_active=true) then raise exception 'invalid_shop'; end if;
 
   foreach v_table in array array['settings','customers','customer_invoices','promises_to_pay','recoveries','customer_balances','agent_tasks','agent_activity_log','reminder_queue','payment_links','legal_notices','escalations','receipts','erp_sync_log','reminder_rules']
