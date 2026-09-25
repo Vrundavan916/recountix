@@ -131,7 +131,8 @@ async function sbSaveRecovery(recovery) {
     const payload={customer_id:recovery.customerId,amount:Number(recovery.amount||0),
       recovery_date:(recovery.date||"").toString().slice(0,10),
       payment_mode:recovery.paymentMode||"Cash",receipt_no:recovery.receiptNo||"",
-      collected_by:recovery.collectedBy||"",remarks:recovery.remarks||""};
+      collected_by:recovery.collectedBy||"",remarks:recovery.remarks||"",
+      request_key:recovery.requestKey||""};
     const {data,error}=await getSupabase().rpc("app_save_recovery",{p_token:token,p_payload:payload});
     if(error)throw error;return mapRecoveryFromDb(data);
 }
