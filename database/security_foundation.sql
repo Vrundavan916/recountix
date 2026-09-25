@@ -409,6 +409,11 @@ revoke all on public.system_config from anon,authenticated;
 
 
 -- Tenant-isolated customer and recovery operations.
+alter table public.recoveries add column if not exists request_key text;
+create unique index if not exists idx_recoveries_shop_request_key
+  on public.recoveries(shop_id,request_key)
+  where request_key is not null and request_key <> '';
+
 create or replace function public.app_get_customers(p_token text)
 returns setof public.customers language plpgsql security definer set search_path=public,pg_temp as $$
 declare v_shop uuid;
@@ -495,7 +500,13 @@ end $$;
 
 create or replace function public.app_save_recovery(p_token text,p_payload jsonb)
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
-declare v_shop uuid; v_customer public.customers%rowtype; v_row public.recoveries%rowtype; v_amount numeric;
+declare
+  v_shop uuid;
+  v_customer public.customers%rowtype;
+  v_row public.recoveries%rowtype;
+  v_amount numeric;
+  v_request_key text;
+  v_receipt_no text;
 begin
   select u.shop_id into v_shop from public.app_sessions s join public.users u on u.id=s.user_id
    where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
@@ -508,11 +519,32 @@ begin
   if not found then raise exception 'customer_not_found'; end if;
   if v_amount>v_customer.outstanding then raise exception 'amount_exceeds_outstanding'; end if;
   if v_amount=0 and length(trim(coalesce(p_payload->>'remarks','')))=0 then raise exception 'remarks_required'; end if;
+  v_request_key:=left(regexp_replace(coalesce(p_payload->>'request_key',''),'[^A-Za-z0-9._:-]','','g'),120);
+  v_receipt_no:=left(coalesce(p_payload->>'receipt_no',''),100);
 
-  insert into public.recoveries(shop_id,customer_id,amount,recovery_date,payment_mode,receipt_no,collected_by,remarks)
+  if v_request_key<>'' then
+    select * into v_row from public.recoveries
+     where shop_id=v_shop
+       and request_key=v_request_key
+     order by created_at desc limit 1;
+    if found then return to_jsonb(v_row); end if;
+  end if;
+
+  if trim(v_receipt_no)<>'' then
+    select * into v_row from public.recoveries
+     where shop_id=v_shop
+       and customer_id=v_customer.id
+       and receipt_no=v_receipt_no
+       and created_at>now()-interval '10 minutes'
+     order by created_at desc limit 1;
+    if found then return to_jsonb(v_row); end if;
+  end if;
+
+  insert into public.recoveries(shop_id,customer_id,amount,recovery_date,payment_mode,receipt_no,collected_by,remarks,request_key)
   values(v_shop,v_customer.id,v_amount,coalesce(nullif(p_payload->>'recovery_date','')::date,current_date),
-    left(coalesce(p_payload->>'payment_mode','Cash'),30),left(coalesce(p_payload->>'receipt_no',''),100),
-    left(coalesce(p_payload->>'collected_by',''),150),left(coalesce(p_payload->>'remarks',''),2000))
+    left(coalesce(p_payload->>'payment_mode','Cash'),30),v_receipt_no,
+    left(coalesce(p_payload->>'collected_by',''),150),left(coalesce(p_payload->>'remarks',''),2000),
+    nullif(v_request_key,''))
   returning * into v_row;
   update public.customers set outstanding=greatest(0,outstanding-v_amount),
     remarks=case when v_amount=0 then concat_ws(' | ',nullif(remarks,''),
