@@ -58,6 +58,7 @@ declare
   v_rows jsonb;
   v_row jsonb;
   v_counts jsonb:='{}'::jsonb;
+  v_ref uuid;
 begin
   select u.* into v_user
   from public.app_sessions s join public.users u on u.id=s.user_id
@@ -81,6 +82,89 @@ begin
     loop
       if coalesce(v_row->>'shop_id','')<>v_shop::text then raise exception 'shop_mismatch:%',v_table; end if;
     end loop;
+  end loop;
+
+  foreach v_table in array array['customer_invoices','promises_to_pay','recoveries','customer_balances','agent_tasks','agent_activity_log','reminder_queue','payment_links','legal_notices','escalations','receipts']
+  loop
+    for v_row in select value from jsonb_array_elements(coalesce(p_backup->'tables'->v_table,'[]'::jsonb))
+    loop
+      if nullif(v_row->>'customer_id','') is not null then
+        v_ref:=(v_row->>'customer_id')::uuid;
+        if not exists(select 1 from public.customers c where c.id=v_ref and c.shop_id=v_shop)
+           and not (
+             exists(select 1 from jsonb_array_elements(coalesce(p_backup->'tables'->'customers','[]'::jsonb)) b
+                    where b->>'id'=v_ref::text and b->>'shop_id'=v_shop::text)
+             and not exists(select 1 from public.customers c where c.id=v_ref and c.shop_id<>v_shop)
+           ) then
+          raise exception 'invalid_customer_reference:%',v_table;
+        end if;
+      end if;
+    end loop;
+  end loop;
+
+  foreach v_table in array array['promises_to_pay','agent_tasks','agent_activity_log','payment_links']
+  loop
+    for v_row in select value from jsonb_array_elements(coalesce(p_backup->'tables'->v_table,'[]'::jsonb))
+    loop
+      foreach v_ref in array array[
+        nullif(v_row->>'agent_id','')::uuid,
+        nullif(v_row->>'assigned_by','')::uuid,
+        nullif(v_row->>'created_by','')::uuid
+      ]
+      loop
+        if v_ref is not null and not exists(select 1 from public.users u where u.id=v_ref and u.shop_id=v_shop) then
+          raise exception 'invalid_user_reference:%',v_table;
+        end if;
+      end loop;
+    end loop;
+  end loop;
+
+  foreach v_table in array array['payment_links','receipts']
+  loop
+    for v_row in select value from jsonb_array_elements(coalesce(p_backup->'tables'->v_table,'[]'::jsonb))
+    loop
+      if nullif(v_row->>'recovery_id','') is not null then
+        v_ref:=(v_row->>'recovery_id')::uuid;
+        if not exists(select 1 from public.recoveries r where r.id=v_ref and r.shop_id=v_shop)
+           and not (
+             exists(select 1 from jsonb_array_elements(coalesce(p_backup->'tables'->'recoveries','[]'::jsonb)) b
+                    where b->>'id'=v_ref::text and b->>'shop_id'=v_shop::text)
+             and not exists(select 1 from public.recoveries r where r.id=v_ref and r.shop_id<>v_shop)
+           ) then
+          raise exception 'invalid_recovery_reference:%',v_table;
+        end if;
+      end if;
+    end loop;
+  end loop;
+
+  for v_row in select value from jsonb_array_elements(coalesce(p_backup->'tables'->'agent_activity_log','[]'::jsonb))
+  loop
+    if nullif(v_row->>'task_id','') is not null then
+      v_ref:=(v_row->>'task_id')::uuid;
+      if not exists(select 1 from public.agent_tasks t where t.id=v_ref and t.shop_id=v_shop)
+         and not (
+           exists(select 1 from jsonb_array_elements(coalesce(p_backup->'tables'->'agent_tasks','[]'::jsonb)) b
+                  where b->>'id'=v_ref::text and b->>'shop_id'=v_shop::text)
+           and not exists(select 1 from public.agent_tasks t where t.id=v_ref and t.shop_id<>v_shop)
+         ) then
+        raise exception 'invalid_task_reference:agent_activity_log';
+      end if;
+    end if;
+  end loop;
+
+  for v_row in select value from jsonb_array_elements(coalesce(p_backup->'tables'->'recoveries','[]'::jsonb))
+  loop
+    if nullif(v_row->>'ptp_id','') is not null then
+      v_ref:=(v_row->>'ptp_id')::uuid;
+      if not exists(select 1 from public.promises_to_pay p where p.id=v_ref and p.shop_id=v_shop)
+         and not (
+           exists(select 1 from jsonb_array_elements(coalesce(p_backup->'tables'->'promises_to_pay','[]'::jsonb)) b
+                  where b->>'id'=v_ref::text and b->>'shop_id'=v_shop::text)
+           and not exists(select 1 from public.promises_to_pay p where p.id=v_ref and p.shop_id<>v_shop)
+         ) then
+        raise exception 'invalid_ptp_reference:recoveries';
+      end if;
+    end if;
   end loop;
 
   -- Break the only circular reference; it is restored after recoveries exist.
