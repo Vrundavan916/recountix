@@ -738,6 +738,7 @@ function loadDashboardRecentRecovery() {
 // Recovery Module
 // ================================
 async function saveRecovery() {
+    if (saveRecovery.__saving) return;
     const customerId = document.getElementById("recoveryCustomer");
     const amount = document.getElementById("recoveryAmount");
     const date = document.getElementById("recoveryDate");
@@ -787,10 +788,12 @@ async function saveRecovery() {
         paymentMode: paymentMode ? paymentMode.value : "Cash",
         receiptNo: receiptNo ? receiptNo.value : "",
         collectedBy: collectedBy ? collectedBy.value : "",
-        remarks: remarks ? remarks.value : ""
+        remarks: remarks ? remarks.value : "",
+        requestKey: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random().toString(36).slice(2)
     };
 
     try {
+        saveRecovery.__saving = true;
         await sbSaveRecovery(recovery, finalShopId);
 
         // Outstanding and zero-payment notes are updated atomically by app_save_recovery.
@@ -823,6 +826,8 @@ async function saveRecovery() {
     } catch (e) {
         console.error(e);
         alert("Save failed: " + (e.message || e));
+    } finally {
+        saveRecovery.__saving = false;
     }
 }
 
