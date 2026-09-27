@@ -172,17 +172,8 @@ function showShopModal() {
         return;
     }
 
-    // Loaded themes contain several modal rules. Important inline values make
-    // opening reliable on touch devices while retaining the existing design.
-    modal.style.setProperty("display", "flex", "important");
-    modal.style.setProperty("align-items", "center", "important");
-    modal.style.setProperty("justify-content", "center", "important");
-    modal.style.setProperty("z-index", "20050", "important");
-    modal.setAttribute("aria-hidden", "false");
+    RecountixModal.open("shopModal");
     document.body.classList.add("shop-modal-open");
-
-    const firstField = document.getElementById("shopName");
-    if (firstField) window.setTimeout(() => firstField.focus(), 0);
 }
 
 function openAddShopModal() {
@@ -234,8 +225,7 @@ function openEditShopModal(shopId) {
 function closeShopModal() {
     const modal = document.getElementById("shopModal");
     if (!modal) return;
-    modal.style.setProperty("display", "none", "important");
-    modal.setAttribute("aria-hidden", "true");
+    RecountixModal.close("shopModal");
     document.body.classList.remove("shop-modal-open");
 }
 
@@ -363,11 +353,11 @@ function openRenewModal(shopId, shopName, currentPlan) {
     nextYear.setFullYear(nextYear.getFullYear() + 1);
     document.getElementById("renewEndDate").value = nextYear.toISOString().split("T")[0];
 
-    document.getElementById("renewModal").style.display = "block";
+    RecountixModal.open("renewModal");
 }
 
 function closeRenewModal() {
-    document.getElementById("renewModal").style.display = "none";
+    RecountixModal.close("renewModal");
 }
 
 async function confirmRenewSubscription() {

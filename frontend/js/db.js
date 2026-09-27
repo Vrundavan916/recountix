@@ -511,3 +511,11 @@ async function sbRestoreBusinessBackup(backup) {
 }
 window.sbExportBusinessBackup=sbExportBusinessBackup;
 window.sbRestoreBusinessBackup=sbRestoreBusinessBackup;
+
+async function sbModifyRecovery(id, expectedAmount, payload) {
+ const {data,error}=await getSupabase().rpc('app_update_recovery',{
+  p_token:getSession().sessionToken,p_recovery_id:id,p_expected_amount:expectedAmount,p_payload:payload
+ });
+ if(error)throw error;
+ return mapRecoveryFromDb(data);
+}

@@ -1,7 +1,7 @@
-const CACHE_NAME = 'recountix-offline-backup-v5';
+const CACHE_NAME = 'recountix-forms-drawer-20260927';
 const CORE = [
   './backup.html','./css/recountix-2027.css','./css/style.css','./css/final-suite.css','./css/business-pro.css',
-  './js/supabase.js','./js/utils.js','./js/db.js','./js/auth.js',
+  './js/supabase.js','./js/permissions.js','./js/utils.js','./js/db.js','./js/auth.js',
   './js/offline-backup.js','./js/backup.js','./assets/logo.png'
 ];
 

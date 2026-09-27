@@ -575,3 +575,65 @@ body.maintenance-screen .retry-btn{
   .page-title{ font-size:19px !important; }
   .content-box,.table-section{ padding:16px !important; }
 }
+
+/* Shared application layout: drawers and forms behave the same on every page. */
+@media screen {
+  .wrapper,.main-content,.content-box,.table-section,.form-grid > * { min-width:0; }
+  .sidebar {
+    width:min(286px,85vw) !important;
+    transform:translateX(-105%) !important;
+    visibility:hidden;
+    transition:transform .22s ease,visibility .22s;
+    z-index:1100 !important;
+    padding-top:68px !important;
+    height:100dvh !important;
+  }
+  .sidebar.open { transform:translateX(0) !important; visibility:visible; }
+  .menu-toggle {
+    display:flex !important; align-items:center; justify-content:center;
+    width:44px !important; height:44px !important; z-index:1200 !important;
+    cursor:pointer; touch-action:manipulation;
+  }
+  .sidebar-overlay { z-index:1000 !important; background:rgba(6,36,32,.15) !important; backdrop-filter:none !important; }
+  .sidebar-overlay:not(.show) { pointer-events:none; }
+  .main-content { margin-left:0 !important; width:100% !important; padding:76px 28px 36px !important; }
+  .form-grid { grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)) !important; }
+  .form-grid .full-width { grid-column:1 / -1; }
+  input,select,textarea { max-width:100%; min-width:0; }
+  input[type="checkbox"],input[type="radio"] { width:20px; height:20px; vertical-align:middle; }
+  .form-grid input,.form-grid select,.form-grid textarea { scroll-margin-block:24px; }
+  .modal {
+    display:none; position:fixed !important; inset:var(--rx-modal-top,0px) 0 auto !important;
+    width:100% !important; height:var(--rx-modal-height,100dvh) !important;
+    margin:0 !important; padding:20px !important; z-index:20050 !important;
+    align-items:center; justify-content:center; overflow:hidden;
+    background:rgba(6,36,32,.35) !important; backdrop-filter:none !important;
+  }
+  .modal.rx-modal-open { display:flex !important; }
+  .modal-content {
+    position:relative; flex:0 1 780px; width:min(780px,100%) !important;
+    min-width:0; max-width:100% !important; max-height:100% !important;
+    overflow-y:auto !important; overscroll-behavior:contain;
+    margin:auto !important; padding:26px !important;
+    -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;
+  }
+  .modal-content > h2 { padding-right:48px; margin:0 0 22px; }
+  .modal-content .close,.rx-modal-close {
+    position:absolute; top:12px; right:12px; display:flex; align-items:center; justify-content:center;
+    width:44px; height:44px; border:1px solid var(--border); border-radius:12px;
+    background:var(--surface); color:var(--ink); font-size:26px; cursor:pointer;
+    touch-action:manipulation; z-index:2;
+  }
+  body.rx-modal-active { overflow:hidden !important; }
+  @media (max-width:640px) {
+    .main-content { padding:72px 12px 28px !important; }
+    .modal { padding:10px !important; }
+    .modal-content { padding:22px 16px !important; border-radius:16px !important; }
+    .modal .form-grid { grid-template-columns:1fr !important; }
+    input[type="text"],input[type="number"],input[type="date"],input[type="email"],input[type="tel"],
+    input[type="password"],input[type="search"],select,textarea { font-size:16px !important; }
+    .summary-bar { flex-wrap:wrap; gap:12px; }
+    .modal button,.btn-row button { min-height:44px; }
+  }
+  @media (prefers-reduced-motion:reduce) { .sidebar { transition:none; } }
+}

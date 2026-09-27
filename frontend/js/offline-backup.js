@@ -12,7 +12,7 @@ function openDb(){
 async function idbGet(store,key){const d=await openDb();return new Promise((res,rej)=>{const q=d.transaction(store,"readonly").objectStore(store).get(key);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
 async function idbPut(store,value,key){const d=await openDb();return new Promise((res,rej)=>{const tx=d.transaction(store,"readwrite"),os=tx.objectStore(store);key===undefined?os.put(value):os.put(value,key);tx.oncomplete=()=>res(value);tx.onerror=()=>rej(tx.error);});}
 function currentShopId(){try{const s=typeof getSession==="function"?getSession():null;return s&&s.isLoggedIn&&s.shopId?String(s.shopId):"";}catch(e){return "";}}
-function assertShopAccess(shopId){const current=currentShopId();if(!current||String(shopId)!==current)throw new Error("This backup belongs to another business or signed-out session.");return current;}
+function assertShopAccess(shopId){if(!window.rxCan || !rxCan("backup"))throw new Error("Backup permission is required.");const current=currentShopId();if(!current||String(shopId)!==current)throw new Error("This backup belongs to another business or signed-out session.");return current;}
 async function deviceKey(shopId){const scoped=assertShopAccess(shopId),keyId="device-aes:"+scoped;let k=await idbGet(STORE_KEYS,keyId);if(k)return k;k=await crypto.subtle.generateKey({name:"AES-GCM",length:256},false,["encrypt","decrypt"]);await idbPut(STORE_KEYS,k,keyId);return k;}
 function b64(bytes){let s="",u=new Uint8Array(bytes);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
 function unb64(s){const x=atob(s),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return u;}
@@ -58,6 +58,7 @@ async function openPortable(fileObject,passphrase){
 }
 async function auto(force){
   try{
+    await window.rxPermissionsReady;if(!window.rxCan || !rxCan("backup"))return;
     if(typeof getSession!=="function")return;const s=getSession();if(!s.isLoggedIn||!s.sessionToken||!s.shopId)return;
     const last=Date.parse(localStorage.getItem("rx_last_backup_"+s.shopId)||0),due=Date.now()-last>=AUTO_MS;
     if(!navigator.onLine){if(due||isPending(s.shopId)){setPending(s.shopId,true);setStatus(s.shopId,"waiting","Offline — backup will retry automatically.");}return;}
@@ -70,7 +71,7 @@ function markChanged(){
   try{const s=getSession();if(!s.shopId)return;setPending(s.shopId,true);setStatus(s.shopId,"pending","Data changed — encrypted backup is queued.");setTimeout(()=>auto(false),800);}catch(e){}
 }
 function wrapMutations(){
-  ["sbSaveCustomer","sbDeleteCustomer","sbSaveRecovery","sbDeleteRecovery","sbSaveSettings","sbMarkReminder"].forEach(name=>{const fn=window[name];if(typeof fn!=="function"||fn.__rxBackupWrapped)return;const wrapped=async function(){const out=await fn.apply(this,arguments);markChanged();return out;};wrapped.__rxBackupWrapped=true;window[name]=wrapped;});
+  ["sbSaveCustomer","sbDeleteCustomer","sbSaveRecovery","sbModifyRecovery","sbDeleteRecovery","sbSaveSettings","sbMarkReminder"].forEach(name=>{const fn=window[name];if(typeof fn!=="function"||fn.__rxBackupWrapped)return;const wrapped=async function(){const out=await fn.apply(this,arguments);markChanged();return out;};wrapped.__rxBackupWrapped=true;window[name]=wrapped;});
 }
 function startScheduler(){
   wrapMutations();setTimeout(()=>auto(false),1800);setInterval(()=>auto(false),60000);

@@ -38,12 +38,13 @@ async function removeBackup(id){
  await RecountixOfflineBackup.remove(id);msg("Old device backup deleted.","success");await refresh();
 }
 async function restore(){
+ if(!rxRequire("restore"))return;
  const file=$("restoreFile").files[0],pass=$("restorePass").value;if(!file)return msg("Choose a .rxbackup file.","error");if(pass.length<8)return msg("Enter the backup file password.","error");if(!navigator.onLine)return msg("Internet is required to restore into Supabase.","error");
  msg("Validating encrypted backup…");const pack=JSON.parse(await file.text()),data=await RecountixOfflineBackup.openPortable(pack,pass),s=getSession();
  if(String(data.shop_id)!==String(s.shopId))throw new Error("This backup belongs to another business.");
  if(!confirm("Restore missing records for "+(data.shop_name||data.shop_code)+"? Existing records will not be overwritten or deleted."))return msg("Restore cancelled.");
- msg("Restoring missing records…");const result=await sbRestoreBusinessBackup(data);msg("Restore completed for this business.","success");await RecountixOfflineBackup.capture(data.shop_id);await refresh();return result;
+ msg("Restoring missing records…");const result=await sbRestoreBusinessBackup(data);msg("Restore completed for this business.","success");if(rxCan("backup")){await RecountixOfflineBackup.capture(data.shop_id);await refresh();}return result;
 }
-async function boot(){try{const s=getSession();if(!s.isLoggedIn)return location.replace("login.html");await shops();await refresh();window.addEventListener("recountix:backup-status",renderAutoStatus);$("syncBackup").onclick=()=>sync().catch(e=>msg(e.message||String(e),"error"));$("restoreBackup").onclick=()=>restore().catch(e=>msg(e.message==="OperationError"?"Wrong backup password or damaged file.":(e.message||String(e)),"error"));}catch(e){msg(e.message||String(e),"error");}}
+async function boot(){try{await window.rxPermissionsReady;const s=getSession();if(!s.isLoggedIn)return location.replace("login.html");await shops();if(rxCan("backup"))await refresh();window.addEventListener("recountix:backup-status",renderAutoStatus);$("syncBackup").onclick=()=>sync().catch(e=>msg(e.message||String(e),"error"));$("restoreBackup").onclick=()=>restore().catch(e=>msg(e.message==="OperationError"?"Wrong backup password or damaged file.":(e.message||String(e)),"error"));}catch(e){msg(e.message||String(e),"error");}}
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot,{once:true}):boot();
 })();

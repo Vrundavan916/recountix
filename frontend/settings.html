@@ -12,7 +12,7 @@
     var loggedIn = store.getItem('bk_isLoggedIn') === 'true';
     if (!loggedIn) { window.location.replace('login.html'); return; }
     var role = store.getItem('bk_role') || 'user';
-    if (role !== 'admin' && role !== 'super_admin') { window.location.replace('dashboard.html'); }
+    // Business settings permission is verified by the server after the scripts load.
   } catch (e) {}
 })();
 </script>
@@ -33,7 +33,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet"
 href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-<link rel="stylesheet" href="css/recountix-2027.css?v=3">
+<link rel="stylesheet" href="css/recountix-2027.css?v=forms-drawer-4">
 </head>
 
 <body>
@@ -454,7 +454,7 @@ PART 3B - USER MANAGEMENT
     </table>
 </section>
 
-<section class="table-section fade" id="userManagementSection">
+<section class="table-section fade" id="userManagementSection" data-rc-compact="1">
 
 <div class="summary-bar">
 
@@ -465,7 +465,7 @@ User Management
 </h2>
 
 <span>
-Add Or Remove Staff Logins
+Add, modify, delete and set individual user rights
 </span>
 
 </div>
@@ -475,7 +475,7 @@ Add Or Remove Staff Logins
 <div class="form-grid">
 
 <div>
-<label>New Username</label>
+<label>New Username <small>(new users start with View only)</small></label>
 <input type="text" id="newUserUsername" placeholder="Username">
 </div>
 
@@ -487,7 +487,7 @@ Add Or Remove Staff Logins
 <div>
 <label>Role</label>
 <select id="newUserRole">
-<option value="User">User (Add/Edit Only)</option>
+<option value="User">User (Custom Rights)</option>
 <option value="Admin">Admin (Full Access)</option>
 </select>
 </div>
@@ -1139,11 +1139,12 @@ JAVASCRIPT
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
-<script src="js/utils.js?v=12-sidebar-tap"></script>
+<script src="js/permissions.js?v=rights-1"></script>
+<script src="js/utils.js?v=forms-drawer-4"></script>
 <script src="js/db.js?v=offline-backup-1"></script>
-<script src="js/auth.js?v=business-platform-1"></script>
-<script src="js/app.js?v=security-xss-1"></script>
-<script src="js/company.js?v=security-xss-1"></script>
+<script src="js/auth.js?v=rights-1"></script>
+<script src="js/app.js?v=forms-drawer-4"></script>
+<script src="js/company.js?v=forms-drawer-4"></script>
 <script src="js/excel-import.js"></script>
 
 <script>
@@ -1205,7 +1206,7 @@ setInterval(function(){
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
 
-<script src="js/final-suite.js?v=11-final"></script>
-<script src="js/offline-backup.js?v=1"></script></body>
+<script src="js/final-suite.js?v=rights-1"></script>
+<script src="js/offline-backup.js?v=rights-1"></script></body>
 
 </html>

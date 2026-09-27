@@ -36,10 +36,11 @@ function appEscape(value) {
 // Customer Modal
 // ================================
 function openModal() {
+    if (!rxRequire(editIndex >= 0 ? "modify" : "add")) return;
     const modal = document.getElementById("customerModal");
     if (modal) {
         modal.classList.add("vo-modal-open");
-        modal.style.display = "flex";
+        RecountixModal.open("customerModal");
     }
 }
 
@@ -47,7 +48,7 @@ function closeModal() {
     const modal = document.getElementById("customerModal");
     if (modal) {
         modal.classList.remove("vo-modal-open");
-        modal.style.display = "none";
+        RecountixModal.close("customerModal");
     }
     const form = document.getElementById("customerForm");
     if (form) form.reset();
@@ -136,6 +137,7 @@ function getCustomerData() {
 // Save Customer
 // ================================
 async function saveCustomer() {
+    if (!rxRequire(editIndex >= 0 ? "modify" : "add")) return;
     if (!validateCustomerForm()) return;
 
     const customer = getCustomerData();
@@ -324,7 +326,7 @@ function loadCustomers() {
         }
 
         rowNum++;
-        const deleteButton = (role === "admin" || role === "super_admin")
+        const deleteButton = rxCan("delete")
             ? `<button onclick="deleteCustomer(${index})" title="Delete">🗑️</button>`
             : "";
         const hasMobile = !!(customer.mobile && String(customer.mobile).replace(/\D/g, "").length >= 10);
@@ -377,6 +379,7 @@ window.applyHashAgingFilter = applyHashAgingFilter;
 // Edit / Delete / Search / View
 // ================================
 function editCustomer(index) {
+    if (!rxRequire("modify")) return;
     editIndex = index;
     const c = customers[index];
     editCustomerId = c.id;
@@ -403,8 +406,8 @@ function editCustomer(index) {
 
 async function deleteCustomer(index) {
     const session = getSession();
-    if (session.role !== "admin" && session.role !== "super_admin") {
-        alert("Only Admin Can Delete Records.");
+    if (!rxCan("delete")) {
+        alert("Your Administrator has not granted Delete permission.");
         return;
     }
     if (!confirm("Delete this customer permanently?")) return;
@@ -558,6 +561,7 @@ function getDueReminderCustomers() {
 }
 
 async function processWhatsAppReminders(autoOpen) {
+    if (!rxRequire("modify")) return;
     const list = getDueReminderCustomers();
     if (!list.length) {
         alert("No auto-reminders pending today.\n\n• Outstanding > 0\n• Auto Reminder ON\n• Follow-up / Due date today or past");
@@ -738,6 +742,7 @@ function loadDashboardRecentRecovery() {
 // Recovery Module
 // ================================
 async function saveRecovery() {
+    if (!rxRequire("add")) return;
     if (saveRecovery.__saving) return;
     const customerId = document.getElementById("recoveryCustomer");
     const amount = document.getElementById("recoveryAmount");
@@ -842,7 +847,7 @@ function loadRecoveryTable() {
 
     recoveries.forEach((item, index) => {
         const customer = (customers || []).find(c => String(c.id) === String(item.customerId));
-        const deleteBtn = (role === "admin" || role === "super_admin")
+        const deleteBtn = rxCan("delete")
             ? `<button class="action-btn delete-btn" onclick="deleteRecovery(${index})" title="Delete">🗑️</button>`
             : "";
 
@@ -856,15 +861,15 @@ function loadRecoveryTable() {
             <td>${appEscape(item.date || "-")}</td>
             <td>${appEscape(item.collectedBy || "-")}</td>
             <td>${appEscape(item.remarks || "-")}</td>
-            <td>${deleteBtn}</td>
+            <td>${rxCan("modify") ? `<button type="button" onclick="editRecovery(${index})" title="Modify">✏️</button>` : ""}${deleteBtn}</td>
         </tr>`;
     });
 }
 
 async function deleteRecovery(index) {
     const session = getSession();
-    if (session.role !== "admin" && session.role !== "super_admin") {
-        alert("Only Admin Can Delete Records.");
+    if (!rxCan("delete")) {
+        alert("Your Administrator has not granted Delete permission.");
         return;
     }
     if (!confirm("Delete this recovery entry?")) return;
@@ -1342,7 +1347,7 @@ async function addUser() {
         usernameField.value = "";
         passwordField.value = "";
         roleField.value = "User";
-        alert("User Added Successfully.");
+        alert("User added with View-only access. Select Modify / Rights to grant permissions.");
         await loadUserList();
     } catch (e) {
         console.error(e);
@@ -1401,33 +1406,12 @@ async function deleteUser(usernameOrId) {
 }
 
 async function loadUserList() {
-    const tbody = document.getElementById("userListBody");
-    if (!tbody) return;
-    const session = getSession();
-
-    try {
-        const shopFilter = isSuperAdmin() ? null : currentShopId();
-        const users = await sbGetUsers(shopFilter);
-        tbody.innerHTML = "";
-        (users || []).forEach(u => {
-            const isSelf = u.id === session.userId || u.username === session.username;
-            const isSA = u.role === "super_admin" || u.username === "superadmin";
-            let action = "—";
-            if (!isSelf && !isSA) {
-                action = `<button type="button" onclick="deleteUser(this.dataset.uid)" data-uid="${u.id}" title="Remove" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">🗑️ Remove</button>`;
-            }
-            tbody.innerHTML += `
-            <tr>
-                <td>${appEscape(u.username || "")}</td>
-                <td>${appEscape(u.role || "")}</td>
-                <td>${action}</td>
-            </tr>`;
-        });
-    } catch (e) {
-        console.error(e);
-        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444;">Failed to load users: ${appEscape(e.message || e)}</td></tr>`;
-    }
+    return RecountixPermissions.loadUsers();
 }
+
+// ================================
+// Company branding
+// ================================
 
 function getCompanyName() {
     return settings.company || getSession().shopName || "Recountix";
@@ -1460,6 +1444,7 @@ function previewCompanyLogo(event) {
 }
 
 async function saveCompanyBranding() {
+    if (!rxRequire("settings")) return;
     const session=getSession();const shopId=currentShopId();
     if(!shopId){alert("Super Admin branding is fixed. Use Account Settings for profile changes.");return;}
     const companyField=document.getElementById("companyName");
@@ -1531,6 +1516,7 @@ function loadExecutiveListUI() {
 }
 
 async function addExecutive() {
+    if (!rxRequire("settings")) return;
     const input = document.getElementById("newExecutiveName");
     if (!input) return;
     const name = input.value.trim();
@@ -1564,6 +1550,7 @@ async function addExecutive() {
 }
 
 async function removeExecutive(index) {
+    if (!rxRequire("settings")) return;
     if (!confirm("Remove this executive?")) return;
     const shopId = (typeof currentShopId === "function") ? currentShopId() : null;
     if (!shopId) {
@@ -1676,6 +1663,8 @@ window.applyShopBranding = applyShopBranding;
 // Data reload
 // ================================
 async function reloadAllData() {
+    await window.rxPermissionsReady;
+    if (!rxCan("view")) { customers=[];recoveries=[];return; }
     const session = getSession();
     // Super Admin must NOT see other jewellers' customer/recovery data
     // Only load when a shop context (session.shopId) exists
@@ -1721,6 +1710,7 @@ window.addEventListener("load", async function () {
         try { await supabaseBoot(); } catch (e) { console.error(e); }
     }
 
+    await window.rxPermissionsReady;
     checkLogin();
 
     // If Super Admin switched maintenance ON, immediately remove normal users
@@ -2113,6 +2103,7 @@ function clearPtpForm() {
 }
 
 async function savePtpForm() {
+    if (!rxRequire("add")) return;
     const customerId = (document.getElementById("ptpCustomer") || {}).value;
     const amount = Number((document.getElementById("ptpAmount") || {}).value || 0);
     const date = (document.getElementById("ptpDate") || {}).value;
@@ -2211,6 +2202,7 @@ async function loadPtpTable() {
 }
 
 async function markPtpKept(id) {
+    if (!rxRequire("modify")) return;
     if (!confirm("Mark this promise as KEPT? (Customer paid as promised)")) return;
     try {
         await sbUpdatePtpStatus(id, "kept");
@@ -2222,6 +2214,7 @@ async function markPtpKept(id) {
 }
 
 async function markPtpBroken(id) {
+    if (!rxRequire("modify")) return;
     if (!confirm("Mark as BROKEN? This will create an escalation.")) return;
     try {
         await sbUpdatePtpStatus(id, "broken");
@@ -2234,6 +2227,7 @@ async function markPtpBroken(id) {
 }
 
 async function markPtpCancelled(id) {
+    if (!rxRequire("modify")) return;
     if (!confirm("Cancel this promise?")) return;
     try {
         await sbUpdatePtpStatus(id, "cancelled");
@@ -2244,6 +2238,7 @@ async function markPtpCancelled(id) {
 }
 
 async function runBrokenPtpCheck() {
+    if (!rxRequire("modify")) return;
     if (!confirm("Process all overdue open PTPs as broken (server function)?")) return;
     try {
         const token = getSession().sessionToken;
@@ -2294,6 +2289,7 @@ function buildUpiPayUrl(upiId, name, amount, note) {
 }
 
 async function openPaymentLinkForCustomer(index) {
+    if (!rxRequire("add")) return;
     const c = customers[index];
     if (!c) return;
     const upi = getShopUpiId();
@@ -2480,6 +2476,7 @@ async function loadEscalationsTable() {
 }
 
 async function setEscalationStatus(id, status) {
+    if (!rxRequire("modify")) return;
     try {
         const patch = { status: status };
         if (status === "resolved") {
@@ -2518,6 +2515,7 @@ window.readUpiSettingsIntoSettingsObj = readUpiSettingsIntoSettingsObj;
 // ================================
 
 async function saveActivityForm() {
+    if (!rxRequire("add")) return;
     const customerId = (document.getElementById("actCustomer") || {}).value;
     const type = (document.getElementById("actType") || {}).value || "call";
     const outcome = (document.getElementById("actOutcome") || {}).value || "";
@@ -2609,6 +2607,7 @@ async function initActivityPage() {
 }
 
 function openLegalNoticeForCustomer(index) {
+    if (!rxRequire("add")) return;
     const c = customers[index];
     if (!c) return;
     const shop = (getSession().shopName) || "Shop";
@@ -2959,6 +2958,7 @@ async function loadFieldTracking() {
 }
 
 async function fieldCheckIn() {
+    if (!rxRequire("add")) return;
     const customerId = (document.getElementById("fieldCheckinCustomer") || {}).value;
     const notes = ((document.getElementById("fieldCheckinNotes") || {}).value || "").trim();
     const type = (document.getElementById("fieldCheckinType") || {}).value || "visit";
@@ -3286,3 +3286,31 @@ window.enforceSuperAdminDataPrivacy = enforceSuperAdminDataPrivacy;
 
 window.getCustomerDaysOverdue = getCustomerDaysOverdue;
 window.buildClientAgingSummary = buildClientAgingSummary;
+
+// Existing collections can be corrected without deleting their transaction identity.
+function editRecovery(index) {
+ if(!rxRequire('modify'))return;
+ const row=recoveries[index];if(!row)return;
+ let dialog=document.getElementById('rxEditRecovery');
+ if(!dialog){
+  dialog=document.createElement('dialog');dialog.id='rxEditRecovery';
+  dialog.style.cssText='border:0;border-radius:16px;padding:24px;width:440px;max-width:90vw;max-height:90vh;overflow:auto';
+  dialog.innerHTML='<form><h2>Modify recovery</h2><p>Correcting the amount also updates the customer balance.</p><label>Amount<input name="amount" type="number" min="0" step="0.01" required></label><label>Date<input name="recovery_date" type="date" required></label><label>Payment mode<select name="payment_mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option><option>Card</option></select></label><label>Receipt number<input name="receipt_no" maxlength="100"></label><label>Collected by<input name="collected_by" maxlength="150"></label><label>Remarks<textarea name="remarks" maxlength="2000"></textarea></label><p role="alert"></p><button type="button">Cancel</button> <button type="submit">Save changes</button></form>';
+  dialog.querySelectorAll('label').forEach(el=>{el.style.cssText='display:block;margin:12px 0';});
+  dialog.querySelectorAll('input,select,textarea').forEach(el=>{el.style.cssText='display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:4px';});
+  document.body.append(dialog);dialog.querySelector('button[type="button"]').onclick=()=>dialog.close();
+ }
+ const form=dialog.querySelector('form');
+ const values={amount:row.amount,recovery_date:row.date,payment_mode:row.paymentMode,receipt_no:row.receiptNo,collected_by:row.collectedBy,remarks:row.remarks};
+ Object.entries(values).forEach(([key,value])=>{form.elements[key].value=value || (key==='amount'?0:'');});
+ form.querySelector('[role="alert"]').textContent='';
+ form.onsubmit=async event=>{
+  event.preventDefault();const button=form.querySelector('[type="submit"]');if(button.disabled)return;button.disabled=true;
+  try{
+   const payload=Object.fromEntries(new FormData(form));payload.amount=Number(payload.amount);
+   await sbModifyRecovery(row.id,row.amount,payload);dialog.close();await reloadAllData();
+  }catch(error){form.querySelector('[role="alert"]').textContent=error.message || 'Unable to modify recovery.';}
+  finally{button.disabled=false;}
+ };
+ dialog.showModal();
+}

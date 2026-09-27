@@ -287,7 +287,7 @@ function checkLogin() {
         try { sessionStorage.setItem("sa-privacy-customers", "1"); } catch (e) {}
     }
 
-    if (page.includes("settings.html") && role !== "admin" && role !== "super_admin") {
+    if (page.includes("settings.html") && role !== "admin" && role !== "super_admin" && !window.RecountixPermissions) {
         alert("Access Denied. Settings is available to Admin only.");
         window.location.href = "dashboard.html";
         return;
@@ -386,7 +386,7 @@ function applyRoleRestrictions() {
     if (role === "admin" || role === "super_admin") return;
 
     document.querySelectorAll('a[href="settings.html"]').forEach(link => {
-        link.style.display = "none";
+        link.style.display = window.rxCan && rxCan("settings") ? "" : "none";
     });
 
     const userMgmt = document.getElementById("userManagementSection");
