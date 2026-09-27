@@ -770,7 +770,10 @@ body.maintenance-screen .retry-btn{
   }
   body.rx-modal-active { overflow:hidden !important; }
   @media (max-width:640px) {
-    .main-content { padding:72px 12px 28px !important; }
+    .main-content { padding:92px 12px 28px !important; }
+    .menu-toggle { top:22px !important; left:18px !important; }
+    .topbar { padding-left:64px !important; min-height:56px; align-items:center !important; }
+    .page-title { line-height:1.1 !important; }
     .modal { padding:10px !important; }
     .modal-content { padding:22px 16px !important; border-radius:16px !important; }
     .modal .form-grid { grid-template-columns:1fr !important; }
