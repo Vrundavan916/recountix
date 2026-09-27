@@ -799,7 +799,7 @@ async function saveRecovery() {
 
     try {
         saveRecovery.__saving = true;
-        await sbSaveRecovery(recovery, finalShopId);
+        const savedRecovery = await sbSaveRecovery(recovery, finalShopId);
 
         // Outstanding and zero-payment notes are updated atomically by app_save_recovery.
 
@@ -811,7 +811,7 @@ async function saveRecovery() {
             paymentMode: paymentMode ? paymentMode.value : "",
             receiptNo: receiptNo ? receiptNo.value : "",
             remarks: remarks ? remarks.value : "",
-            id: null
+            id: savedRecovery && savedRecovery.id ? savedRecovery.id : null
         };
 
         amount.value = "";
@@ -861,7 +861,12 @@ function loadRecoveryTable() {
             <td>${appEscape(item.date || "-")}</td>
             <td>${appEscape(item.collectedBy || "-")}</td>
             <td>${appEscape(item.remarks || "-")}</td>
-            <td>${rxCan("modify") ? `<button type="button" onclick="editRecovery(${index})" title="Modify">✏️</button>` : ""}${deleteBtn}</td>
+            <td>
+                ${Number(item.amount || 0) > 0 ? `<button type="button" onclick="printRecoveryFromTable(${index})" title="Print receipt">🧾</button>` : ""}
+                ${Number(item.amount || 0) > 0 ? `<button type="button" onclick="sendRecoveryReceiptWhatsApp(${index})" title="WhatsApp receipt">WA</button>` : ""}
+                ${rxCan("modify") ? `<button type="button" onclick="editRecovery(${index})" title="Modify">✏️</button>` : ""}
+                ${deleteBtn}
+            </td>
         </tr>`;
     });
 }
@@ -2390,6 +2395,67 @@ function printRecoveryReceipt(opts) {
     w.document.close();
 }
 
+function buildRecoveryReceiptOptions(recovery, customer) {
+    recovery = recovery || {};
+    customer = customer || {};
+    const amount = Number(recovery.amount || 0);
+    const currentOutstanding = Number(customer.outstanding || 0);
+    const outstandingAfter = Number.isFinite(recovery.outstandingAfter)
+        ? Number(recovery.outstandingAfter)
+        : currentOutstanding;
+    return {
+        receiptNo: recovery.receiptNo || recovery.receipt_no || ("R-" + (recovery.id || Date.now())),
+        date: recovery.date || recovery.recovery_date || "",
+        customerName: customer.name || "",
+        mobile: customer.mobile || "",
+        mode: recovery.paymentMode || recovery.payment_mode || "Cash",
+        amount: amount,
+        outstandingAfter: Math.max(0, outstandingAfter),
+        remarks: recovery.remarks || ""
+    };
+}
+
+function printRecoveryFromTable(index) {
+    const recovery = recoveries[index];
+    if (!recovery) return;
+    const customer = (customers || []).find(c => String(c.id) === String(recovery.customerId));
+    printRecoveryReceipt(buildRecoveryReceiptOptions(recovery, customer));
+}
+
+function buildReceiptWhatsAppMessage(opts) {
+    const shop = (typeof getSession === "function" && getSession().shopName) || "Recountix";
+    return [
+        "Payment receipt - " + shop,
+        "",
+        "Receipt No: " + (opts.receiptNo || "-"),
+        "Date: " + (opts.date || "-"),
+        "Customer: " + (opts.customerName || "-"),
+        "Amount paid: ₹" + Number(opts.amount || 0).toLocaleString("en-IN"),
+        "Payment mode: " + (opts.mode || "-"),
+        "Outstanding after payment: ₹" + Number(opts.outstandingAfter || 0).toLocaleString("en-IN"),
+        opts.remarks ? ("Notes: " + opts.remarks) : "",
+        "",
+        "Thank you."
+    ].filter(Boolean).join("\n");
+}
+
+function sendRecoveryReceiptWhatsApp(index) {
+    const recovery = recoveries[index];
+    if (!recovery) return;
+    const customer = (customers || []).find(c => String(c.id) === String(recovery.customerId));
+    if (!customer) {
+        alert("Customer not found for this recovery.");
+        return;
+    }
+    const phone = normalizeWhatsAppNumber(customer.mobile);
+    if (!phone) {
+        alert("Valid mobile number not found. Enter a 10-digit mobile on the customer.");
+        return;
+    }
+    const text = buildReceiptWhatsAppMessage(buildRecoveryReceiptOptions(recovery, customer));
+    window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(text), "_blank");
+}
+
 async function afterRecoveryReceipt(recovery, cust, newOut) {
     if (!recovery || Number(recovery.amount || 0) <= 0) return;
     const session = getSession();
@@ -2428,6 +2494,8 @@ async function afterRecoveryReceipt(recovery, cust, newOut) {
 
 window.openPaymentLinkForCustomer = openPaymentLinkForCustomer;
 window.printRecoveryReceipt = printRecoveryReceipt;
+window.printRecoveryFromTable = printRecoveryFromTable;
+window.sendRecoveryReceiptWhatsApp = sendRecoveryReceiptWhatsApp;
 window.afterRecoveryReceipt = afterRecoveryReceipt;
 window.getShopUpiId = getShopUpiId;
 
