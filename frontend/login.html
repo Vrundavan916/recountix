@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
-<link rel="stylesheet" href="css/recountix-2027.css?v=missing-features-1">
+<link rel="stylesheet" href="css/recountix-2027.css?v=mobile-stars-1">
 
 
   <style>
@@ -63,22 +63,33 @@
     }
     .font-display{ font-family:'Outfit', sans-serif; }
 
-    /* soft decorative corner shapes — echoes the ribbon/floral reference art */
+    /* soft decorative corner shapes with mobile silver-star motion */
     body::before, body::after{
       content:"";
       position:fixed;
-      border-radius:50%;
-      filter:blur(2px);
       pointer-events:none;
-      opacity:.5;
     }
     body::before{
-      width:340px; height:340px; top:-120px; left:-120px;
-      background: radial-gradient(circle at 30% 30%, var(--soft-300), transparent 70%);
+      inset:-30vh 0 0;
+      opacity:.52;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.96) 0 1.1px, transparent 1.9px),
+        radial-gradient(circle, rgba(190,202,208,.72) 0 1px, transparent 1.8px),
+        radial-gradient(circle, rgba(255,255,255,.78) 0 1.5px, transparent 2.3px);
+      background-size:86px 126px, 138px 178px, 210px 270px;
+      background-position:12px 22px, 58px 92px, 140px 180px;
+      animation:rxLoginSilverStars 18s linear infinite;
     }
     body::after{
+      border-radius:50%;
+      filter:blur(2px);
+      opacity:.5;
       width:380px; height:380px; bottom:-140px; right:-140px;
       background: radial-gradient(circle at 70% 70%, var(--dusty-400), transparent 70%);
+    }
+    @keyframes rxLoginSilverStars{
+      from{ transform:translate3d(0,0,0); }
+      to{ transform:translate3d(0,-180px,0); }
     }
 
     .login-wrap{ position:relative; z-index:2; width:100%; max-width:428px; }
@@ -233,6 +244,7 @@
     .btn-primary:hover{box-shadow:0 18px 38px rgba(11,93,79,.34);}
     .remember input{accent-color:#0B5D4F;}
     body{background:radial-gradient(1100px 500px at 12% -8%,rgba(167,227,211,.55),transparent 60%),radial-gradient(900px 500px at 105% 108%,rgba(15,118,110,.28),transparent 55%),linear-gradient(160deg,#F0FBF7 0%,#D5F2EA 58%,#A7E3D3 100%);}
+    @media (prefers-reduced-motion:reduce){body::before{animation:none;}}
   
     /* Mobile login hardening v5 */
     @media (max-width:760px), (max-height:700px){
