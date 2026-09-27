@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
-<link rel="stylesheet" href="css/recountix-2027.css?v=mobile-stars-1">
+<link rel="stylesheet" href="css/recountix-2027.css?v=card-stars-1">
 
 
   <style>
@@ -118,11 +118,32 @@
     }
 
     .card{
+      position:relative;
+      overflow:hidden;
       background:var(--card);
       border-radius:24px;
       box-shadow:var(--shadow);
       border:1px solid rgba(168,197,224,.45);
       padding:38px 34px 30px;
+    }
+    .card::after{
+      content:"";
+      position:absolute;
+      inset:-35% 0 0;
+      pointer-events:none;
+      opacity:.38;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.96) 0 1px, transparent 1.8px),
+        radial-gradient(circle, rgba(190,202,208,.68) 0 .9px, transparent 1.7px),
+        radial-gradient(circle, rgba(255,255,255,.78) 0 1.3px, transparent 2px);
+      background-size:54px 78px, 82px 112px, 132px 168px;
+      background-position:8px 14px, 36px 52px, 72px 104px;
+      animation:rxCardSilverStars 16s linear infinite;
+    }
+    .card > *{ position:relative; z-index:1; }
+    @keyframes rxCardSilverStars{
+      from{ transform:translate3d(0,0,0); }
+      to{ transform:translate3d(0,-96px,0); }
     }
 
     .icon-badge{
@@ -244,7 +265,7 @@
     .btn-primary:hover{box-shadow:0 18px 38px rgba(11,93,79,.34);}
     .remember input{accent-color:#0B5D4F;}
     body{background:radial-gradient(1100px 500px at 12% -8%,rgba(167,227,211,.55),transparent 60%),radial-gradient(900px 500px at 105% 108%,rgba(15,118,110,.28),transparent 55%),linear-gradient(160deg,#F0FBF7 0%,#D5F2EA 58%,#A7E3D3 100%);}
-    @media (prefers-reduced-motion:reduce){body::before{animation:none;}}
+    @media (prefers-reduced-motion:reduce){body::before,.card::after{animation:none;}}
   
     /* Mobile login hardening v5 */
     @media (max-width:760px), (max-height:700px){
