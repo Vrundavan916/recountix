@@ -3352,29 +3352,6 @@ function enforceSuperAdminDataPrivacy() {
 window.enforceSuperAdminDataPrivacy = enforceSuperAdminDataPrivacy;
 
 
-function initCardWaveTouchAnimation() {
-    if (window.__rxCardWaveTouchReady) return;
-    window.__rxCardWaveTouchReady = true;
-
-    const selector = ".card, .stat-card, .summary-card, .metric-card, .rx-nav-card, .action-card, .vo-final-kpi";
-    document.addEventListener("pointerdown", function (event) {
-        const card = event.target && event.target.closest ? event.target.closest(selector) : null;
-        if (!card) return;
-        card.classList.remove("rx-wave-active");
-        void card.offsetWidth;
-        card.classList.add("rx-wave-active");
-        window.setTimeout(function () {
-            card.classList.remove("rx-wave-active");
-        }, 950);
-    }, { passive: true });
-}
-
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initCardWaveTouchAnimation, { once: true });
-} else {
-    initCardWaveTouchAnimation();
-}
-
 
 window.getCustomerDaysOverdue = getCustomerDaysOverdue;
 window.buildClientAgingSummary = buildClientAgingSummary;
