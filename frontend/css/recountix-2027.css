@@ -833,3 +833,58 @@ body.maintenance-screen .retry-btn{
     animation:none !important;
   }
 }
+
+/* ---------- Card Wave Interaction Layer ---------- */
+.card,
+.stat-card,
+.summary-card,
+.metric-card,
+.rx-nav-card,
+.action-card,
+.vo-final-kpi{ position:relative !important; overflow:hidden; isolation:isolate; }
+.card > *,
+.stat-card > *,
+.summary-card > *,
+.metric-card > *,
+.rx-nav-card > *,
+.action-card > *,
+.vo-final-kpi > *{ position:relative; z-index:2; }
+.card::after,
+.stat-card::after,
+.summary-card::after,
+.metric-card::after,
+.rx-nav-card::after,
+.action-card::after,
+.vo-final-kpi::before{
+  content:""; position:absolute; inset:auto -18% -28% -18%; height:78%;
+  pointer-events:none; z-index:1; opacity:.34;
+  background:
+    repeating-radial-gradient(ellipse 70% 42% at 18% 86%, transparent 0 13px, rgba(31,143,209,.34) 13.5px 15px, transparent 15.5px 26px),
+    repeating-radial-gradient(ellipse 72% 44% at 76% 78%, transparent 0 12px, rgba(159,228,255,.42) 12.5px 14px, transparent 14.5px 25px);
+  background-size:160% 100%, 150% 100%; background-position:0 0, 100% 0;
+  mask-image:linear-gradient(to top, rgba(0,0,0,.92), rgba(0,0,0,.56) 46%, transparent 86%);
+  -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,.92), rgba(0,0,0,.56) 46%, transparent 86%);
+  transform:translate3d(0, 10px, 0);
+  transition:opacity .24s ease, transform .24s ease, background-position .24s ease;
+}
+.card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.stat-card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.summary-card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.metric-card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.rx-nav-card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.action-card:is(:hover,:focus-within,:active,.rx-wave-active)::after,
+.vo-final-kpi:is(:hover,:focus-within,:active,.rx-wave-active)::before{
+  opacity:.58; transform:translate3d(0, 2px, 0) scale(1.02);
+  background-position:42% 0, 58% 0; animation:rxCardWaveFlow .9s ease both;
+}
+@keyframes rxCardWaveFlow{
+  0%{ background-position:0 0, 100% 0; }
+  55%{ background-position:58% 0, 42% 0; }
+  100%{ background-position:42% 0, 58% 0; }
+}
+@media (prefers-reduced-motion:reduce){
+  .card::after,.stat-card::after,.summary-card::after,.metric-card::after,.rx-nav-card::after,.action-card::after,.vo-final-kpi::before{
+    animation:none !important; transition:none !important;
+  }
+}
+
