@@ -82,7 +82,7 @@ window.escapeHtml = escapeHtml;
 window.showToast = showToast;
 
 
-/* ========== Sidebar drawer V6: desktop + mobile, touch-safe ========== */
+/* ========== Sidebar drawer V7: overlay-safe direct navigation ========== */
 (function () {
   function initDrawerV6() {
     var btn = document.getElementById('menuToggle');
@@ -109,19 +109,31 @@ window.showToast = showToast;
       setOpen(!sb.classList.contains('open'));
     }, false);
 
-    if (ov) {
-      ov.addEventListener('click', function (e) {
-        e.preventDefault();
-        setOpen(false);
-      }, false);
-    }
+    // The visual overlay never owns pointer input. Close the drawer on any
+    // outside pointer before the underlying page can react.
+    document.addEventListener('pointerdown', function (e) {
+      if (!sb.classList.contains('open')) return;
+      if (sb.contains(e.target) || btn.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    }, true);
 
-    // Do NOT prevent default on links: navigation/logout must keep working.
-    sb.addEventListener('click', function (e) {
-      var a = e.target.closest && e.target.closest('a');
+    // Capture real sidebar links and navigate explicitly. This avoids mobile
+    // WebView/stacking-layer bugs that can swallow the browser's default tap.
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('.sidebar a[href]');
       if (!a) return;
-      window.setTimeout(function(){ setOpen(false); }, 0);
-    }, false);
+      var href = a.getAttribute('href') || '';
+      if (!href || href === '#' || /^javascript:/i.test(href)) {
+        window.setTimeout(function(){ setOpen(false); }, 0);
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setOpen(false);
+      window.location.assign(a.href);
+    }, true);
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') setOpen(false);
