@@ -17,6 +17,12 @@ Only Super Admin can onboard new businesses. No public registration.
 - Remember me + Forgot password (admin-assisted reset)
 - Modular JavaScript
 
+
+## Future roadmap
+
+- Customer self-view portal: customers can securely check their own bill amount, paid amount, pending amount, last payment and payment status without seeing any other customer's data.
+- Multi-language UI: Gujarati, Hindi and English language support with a simple language switcher. Start with customer-facing screens first, then extend to admin dashboards and reports.
+
 ## Authentication
 
 No default production credentials are published. Create a unique Super Admin credential during the
