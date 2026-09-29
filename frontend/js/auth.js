@@ -431,9 +431,58 @@ function closeForgotPassword() {
 }
 
 async function submitForgotPassword() {
-    // Password resets must never be authorized by comparing database email
-    // values in the browser. Admin reset/verified email flow will handle this.
-    showLoginError("Online password reset is temporarily disabled for security. Contact your business administrator.");
+    const username = (document.getElementById("forgotUsername") || {}).value || "";
+    const email = (document.getElementById("forgotEmail") || {}).value || "";
+    const newPass = (document.getElementById("forgotNewPass") || {}).value || "";
+    const confirmPass = (document.getElementById("forgotConfirmPass") || {}).value || "";
+
+    if (!username.trim() || !email.trim() || !newPass) {
+        showLoginError("Enter username, recovery email and new password.");
+        return;
+    }
+    if (newPass !== confirmPass) {
+        showLoginError("New password and confirm password do not match.");
+        return;
+    }
+    if (newPass.length < MIN_PASSWORD_LEN) {
+        showLoginError("Password must be at least " + MIN_PASSWORD_LEN + " characters.");
+        return;
+    }
+
+    const btn = document.querySelector("#forgotModal .btn-primary");
+    if (btn) {
+        btn.disabled = true;
+        btn.dataset._old = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resetting...';
+    }
+    try {
+        await sbResetPasswordByRecovery(username, email, newPass);
+        alert("Password reset successfully. Please sign in with your new password.");
+        closeForgotPassword();
+        const userEl = document.getElementById("username");
+        const passEl = document.getElementById("password");
+        if (userEl) userEl.value = username.trim();
+        if (passEl) passEl.value = "";
+        if (passEl) passEl.focus();
+    } catch (e) {
+        console.error(e);
+        const raw = String((e && e.message) || e || "");
+        const msg = raw.includes("recovery_not_configured")
+            ? "Recovery email is not set for this account. Contact your business administrator."
+            : raw.includes("invalid_recovery_details")
+                ? "Username and recovery email do not match."
+                : raw.includes("weak_password")
+                    ? "Password must be at least " + MIN_PASSWORD_LEN + " characters."
+                    : raw.includes("too_many_attempts")
+                        ? "Too many reset attempts. Please try again later."
+                        : "Password reset failed. Please try again or contact your business administrator.";
+        showLoginError(msg);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            if (btn.dataset._old) btn.innerHTML = btn.dataset._old;
+        }
+    }
 }
 
 

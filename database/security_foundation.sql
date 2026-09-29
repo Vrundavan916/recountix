@@ -669,13 +669,82 @@ begin
   return jsonb_build_object('ok',true,'username',v_new_username);
 end $$;
 
+
+create or replace function public.app_admin_reset_user_password(p_token text,p_user_id uuid,p_new_password text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $
+declare v_actor public.users%rowtype; v_target public.users%rowtype;
+begin
+  select u.* into v_actor from public.app_sessions s join public.users u on u.id=s.user_id
+   where s.token_hash=encode(extensions.digest(p_token,'sha256'),'hex') and s.revoked_at is null
+     and s.expires_at>now() and u.is_active=true;
+  if not found or v_actor.role not in ('admin','super_admin') then raise exception 'access_denied'; end if;
+  select * into v_target from public.users where id=p_user_id and is_active=true;
+  if not found or v_actor.id=v_target.id or v_target.role='super_admin' then raise exception 'access_denied'; end if;
+  if v_actor.role='admin' and not (v_target.role='user' and v_target.shop_id=v_actor.shop_id) then
+    raise exception 'access_denied';
+  end if;
+  if length(coalesce(p_new_password,''))<8 then raise exception 'weak_password'; end if;
+  update public.users
+     set password=extensions.crypt(p_new_password,extensions.gen_salt('bf',12))
+   where id=v_target.id;
+  update public.app_sessions set revoked_at=now() where user_id=v_target.id and revoked_at is null;
+  insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+  values(coalesce(v_target.shop_id,v_actor.shop_id),v_actor.id,v_actor.username,'user.password_reset','users',v_target.id::text,
+    'Password reset for '||v_target.username);
+  return jsonb_build_object('ok',true,'user_id',v_target.id,'username',v_target.username);
+end $;
+
+create or replace function public.app_reset_password_by_recovery(p_username text,p_recovery_email text,p_new_password text)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $
+declare v_user public.users%rowtype; v_key text; v_attempt public.login_attempts%rowtype;
+begin
+  v_key:='reset:'||lower(trim(coalesce(p_username,'')));
+  if length(trim(coalesce(p_username,'')))<1 or length(trim(coalesce(p_recovery_email,'')))<3 then
+    raise exception 'invalid_recovery_details';
+  end if;
+  select * into v_attempt from public.login_attempts where username=v_key;
+  if found and v_attempt.locked_until is not null and v_attempt.locked_until>now() then
+    raise exception 'too_many_attempts';
+  end if;
+  select * into v_user from public.users
+   where lower(username)=lower(trim(p_username)) and is_active=true;
+  if not found then
+    insert into public.login_attempts(username,failed_count,locked_until,last_attempt_at)
+    values(v_key,1,null,now()) on conflict(username) do update
+      set failed_count=public.login_attempts.failed_count+1,last_attempt_at=now(),
+          locked_until=case when public.login_attempts.failed_count+1>=5 then now()+interval '15 minutes' else public.login_attempts.locked_until end;
+    raise exception 'invalid_recovery_details';
+  end if;
+  if nullif(trim(coalesce(v_user.recovery_email,'')),'') is null then raise exception 'recovery_not_configured'; end if;
+  if lower(trim(v_user.recovery_email))<>lower(trim(p_recovery_email)) then
+    insert into public.login_attempts(username,failed_count,locked_until,last_attempt_at)
+    values(v_key,1,null,now()) on conflict(username) do update
+      set failed_count=public.login_attempts.failed_count+1,last_attempt_at=now(),
+          locked_until=case when public.login_attempts.failed_count+1>=5 then now()+interval '15 minutes' else public.login_attempts.locked_until end;
+    raise exception 'invalid_recovery_details';
+  end if;
+  if length(coalesce(p_new_password,''))<8 then raise exception 'weak_password'; end if;
+  update public.users
+     set password=extensions.crypt(p_new_password,extensions.gen_salt('bf',12))
+   where id=v_user.id;
+  update public.app_sessions set revoked_at=now() where user_id=v_user.id and revoked_at is null;
+  delete from public.login_attempts where username=v_key;
+  insert into public.audit_log(shop_id,user_id,username,action,entity_type,entity_id,details)
+  values(v_user.shop_id,v_user.id,v_user.username,'user.self_password_reset','users',v_user.id::text,'Self-service password reset');
+  return jsonb_build_object('ok',true);
+end $;
+
 revoke all on function public.app_get_users(text) from public;
 revoke all on function public.app_create_user(text,jsonb) from public;
 revoke all on function public.app_delete_user(text,uuid) from public;
+revoke all on function public.app_admin_reset_user_password(text,uuid,text) from public;
+revoke all on function public.app_reset_password_by_recovery(text,text,text) from public;
 revoke all on function public.app_update_own_profile(text,text,text,text,text) from public;
 grant execute on function public.app_get_users(text) to anon,authenticated;
 grant execute on function public.app_create_user(text,jsonb) to anon,authenticated;
 grant execute on function public.app_delete_user(text,uuid) to anon,authenticated;
+grant execute on function public.app_admin_reset_user_password(text,uuid,text) to anon,authenticated;
+grant execute on function public.app_reset_password_by_recovery(text,text,text) to anon,authenticated;
 grant execute on function public.app_update_own_profile(text,text,text,text,text) to anon,authenticated;
 
 

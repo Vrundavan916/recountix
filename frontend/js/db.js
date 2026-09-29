@@ -169,6 +169,23 @@ async function sbDeleteUser(userId) {
     if(error)throw error;return true;
 }
 
+async function sbResetUserPassword(userId,newPassword) {
+    const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");
+    const {data,error}=await getSupabase().rpc("app_admin_reset_user_password",{
+      p_token:token,p_user_id:userId,p_new_password:newPassword||""
+    });
+    if(error)throw error;return data;
+}
+window.sbResetUserPassword=sbResetUserPassword;
+
+async function sbResetPasswordByRecovery(username,recoveryEmail,newPassword) {
+    const {data,error}=await getSupabase().rpc("app_reset_password_by_recovery",{
+      p_username:username||"",p_recovery_email:recoveryEmail||"",p_new_password:newPassword||""
+    });
+    if(error)throw error;return data;
+}
+window.sbResetPasswordByRecovery=sbResetPasswordByRecovery;
+
 async function sbUpdateUserPassword() {
     throw new Error("Use secure profile update");
 }

@@ -1360,6 +1360,53 @@ async function addUser() {
     }
 }
 
+async function resetUserPassword(userId) {
+    const session = getSession();
+    if (!userId) {
+        alert("Invalid user");
+        return;
+    }
+    try {
+        const users = await sbGetUsers(isSuperAdmin() ? null : currentShopId());
+        const target = (users || []).find(u => String(u.id) === String(userId));
+        if (!target) {
+            alert("User not found");
+            return;
+        }
+        if (target.id === session.userId || target.username === session.username) {
+            alert("Use Manage Login Credentials to change your own password.");
+            return;
+        }
+        if (target.role === "super_admin" || target.username === "superadmin") {
+            alert("Super Admin password cannot be reset from this list.");
+            return;
+        }
+        const p1 = prompt("Enter new password for " + (target.username || "this user") + " (minimum 8 characters):");
+        if (p1 === null) return;
+        if (String(p1).length < 8) {
+            alert("Password must be at least 8 characters.");
+            return;
+        }
+        const p2 = prompt("Confirm new password:");
+        if (p2 === null) return;
+        if (p1 !== p2) {
+            alert("Passwords do not match.");
+            return;
+        }
+        if (!confirm("Reset password for " + (target.username || "this user") + "? Existing sessions for that user will be logged out.")) return;
+        await sbResetUserPassword(target.id, p1);
+        alert("Password reset successfully.");
+    } catch (e) {
+        console.error(e);
+        const raw = String(e.message || e);
+        const msg = raw.includes("access_denied") ? "You do not have permission to reset this user."
+            : raw.includes("weak_password") ? "Password must be at least 8 characters."
+            : raw.includes("user_not_found") ? "User not found in your allowed business scope."
+            : raw;
+        alert("Reset failed: " + msg);
+    }
+}
+
 async function deleteUser(usernameOrId) {
     const session = getSession();
     if (!usernameOrId) {
