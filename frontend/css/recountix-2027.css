@@ -780,3 +780,85 @@ body.maintenance-screen .retry-btn{
 .content-box,.table-section{
 
 .content-box,.table-section{
+
+
+/* Settings quick navigation cards */
+.settings-quick-actions{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:14px !important;
+  align-items:stretch !important;
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  padding:0 !important;
+  margin:18px 0 20px !important;
+}
+.settings-quick-actions .action-card{
+  min-height:132px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+  gap:10px !important;
+  text-decoration:none !important;
+  color:var(--ink) !important;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.98),rgba(245,251,249,.94)) padding-box,
+    linear-gradient(135deg,rgba(9,126,103,.24),rgba(65,196,255,.16),rgba(200,164,93,.22)) border-box !important;
+  border:1px solid transparent !important;
+  border-radius:18px !important;
+  box-shadow:0 14px 34px rgba(15,52,45,.08) !important;
+  padding:18px 18px 16px !important;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;
+}
+.settings-quick-actions .action-card::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:auto -18% -42% -18% !important;
+  height:82px !important;
+  background:
+    radial-gradient(circle at 20% 50%,rgba(65,196,255,.16),transparent 32%),
+    linear-gradient(90deg,rgba(9,126,103,.10),rgba(65,196,255,.13),rgba(9,126,103,.06)) !important;
+  border-radius:50% 50% 0 0 !important;
+  pointer-events:none !important;
+  z-index:-1 !important;
+}
+.settings-quick-actions .action-card:hover{
+  transform:translateY(-3px) !important;
+  box-shadow:0 18px 42px rgba(9,126,103,.16) !important;
+  border-color:rgba(9,126,103,.28) !important;
+}
+.settings-quick-actions .action-card > i{
+  width:42px !important;
+  height:42px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:12px !important;
+  background:rgba(9,126,103,.10) !important;
+  color:var(--brand-700) !important;
+  font-size:17px !important;
+  margin:0 !important;
+}
+.settings-quick-actions .action-card h4{
+  margin:2px 0 0 !important;
+  font-size:15px !important;
+  line-height:1.2 !important;
+  font-weight:800 !important;
+  letter-spacing:0 !important;
+  color:var(--ink) !important;
+}
+.settings-quick-actions .action-card p{
+  margin:0 !important;
+  color:var(--ink-soft) !important;
+  font-size:12.5px !important;
+  line-height:1.35 !important;
+}
+@media(max-width:980px){
+  .settings-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+}
+@media(max-width:560px){
+  .settings-quick-actions{grid-template-columns:1fr !important;gap:10px !important;}
+  .settings-quick-actions .action-card{min-height:104px !important;padding:15px !important;}
+}
