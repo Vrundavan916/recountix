@@ -194,7 +194,114 @@
     "View details": "विवरण देखें",
     "Save failed:": "सेव फेल:",
     "Failed:": "फेल:",
-    "Delete failed:": "डिलीट फेल:"
+    "Delete failed:": "डिलीट फेल:",
+    "Beyond What’s Due.": "बियॉन्ड व्हाट्स ड्यू.",
+    "Loading…": "लोड हो रहा है…",
+    "Customer *": "ग्राहक *",
+    "Contact Number": "संपर्क नंबर",
+    "Developed by": "डेवलप्ड बाय",
+    "Minimum 8 characters": "कम से कम 8 अक्षर",
+    "30 Minutes": "30 मिनट",
+    "Across all businesses": "सभी बिजनेस में",
+    "Active Customers": "एक्टिव ग्राहक",
+    "Add Business": "बिजनेस जोड़ें",
+    "Agent code required": "एजेंट कोड जरूरी है",
+    "All Businesses": "सभी बिजनेस",
+    "All Customers": "सभी ग्राहक",
+    "Business Type": "बिजनेस प्रकार",
+    "Check your payment status": "अपना भुगतान स्टेटस देखें",
+    "Company Name": "कंपनी नाम",
+    "Copy link": "लिंक कॉपी करें",
+    "Customers to Contact": "संपर्क करने वाले ग्राहक",
+    "Education / Fees": "एजुकेशन / फीस",
+    "Email Address": "ईमेल पता",
+    "Expiring Soon": "जल्द समाप्त",
+    "Finance / Loan": "फाइनेंस / लोन",
+    "GPS: not captured yet": "GPS अभी कैप्चर नहीं हुआ",
+    "In progress": "प्रगति में",
+    "Invalid user": "गलत यूजर",
+    "Lifetime Collection": "लाइफटाइम कलेक्शन",
+    "No automatic backup status yet.": "अभी ऑटोमैटिक बैकअप स्टेटस नहीं है।",
+    "No business context.": "बिजनेस संदर्भ नहीं है।",
+    "No businesses found": "कोई बिजनेस नहीं मिला",
+    "No records": "कोई रिकॉर्ड नहीं",
+    "Our system is currently being updated. Please try again shortly.": "हमारा सिस्टम अभी अपडेट हो रहा है। कृपया थोड़ी देर बाद कोशिश करें।",
+    "Please select a customer.": "कृपया ग्राहक चुनें।",
+    "Printed:": "प्रिंटेड:",
+    "Real Estate": "रियल एस्टेट",
+    "Receipt Number": "रसीद नंबर",
+    "Registered Customers": "रजिस्टर्ड ग्राहक",
+    "Search Customer": "ग्राहक खोजें",
+    "Select Business": "बिजनेस चुनें",
+    "Select Executive": "एक्जीक्यूटिव चुनें",
+    "Super Admin account cannot be deleted.": "सुपर एडमिन अकाउंट डिलीट नहीं हो सकता।",
+    "Today's Follow-up": "आज का फॉलो-अप",
+    "Total Amount": "कुल राशि",
+    "User not found": "यूजर नहीं मिला",
+    "Valid mobile number not found. Enter a 10-digit mobile on the customer.": "मान्य मोबाइल नंबर नहीं मिला। ग्राहक में 10 अंकों का मोबाइल डालें।",
+    "Wholesale / Distribution": "होलसेल / डिस्ट्रीब्यूशन",
+    "Your Administrator has not granted Delete permission.": "आपके एडमिन ने डिलीट परमिशन नहीं दी है।",
+    "(For aging)": "(एजिंग के लिए)",
+    "(new users start with View only)": "(नए यूजर View only से शुरू होते हैं)",
+    "(Payment links)": "(पेमेंट लिंक)",
+    "Cloud Backup": "क्लाउड बैकअप",
+    "Cloud Restore": "क्लाउड रिस्टोर",
+    "Message saved successfully.": "मैसेज सफलतापूर्वक सेव हुआ।",
+    "Customer-wise reports update automatically.": "ग्राहक अनुसार रिपोर्ट अपने आप अपडेट होती है।",
+    "Dashboard statistics refresh after every recovery.": "हर रिकवरी के बाद डैशबोर्ड आंकड़े रिफ्रेश होते हैं।",
+    "Export reports regularly for backup.": "बैकअप के लिए रिपोर्ट नियमित एक्सपोर्ट करें।",
+    "Reports are generated automatically from saved recovery entries.": "सेव की गई रिकवरी एंट्री से रिपोर्ट अपने आप बनती है।",
+    "Verify pending balances before finalizing reports.": "रिपोर्ट फाइनल करने से पहले बाकी बैलेंस जांचें।",
+    "Recovery entry not allowed": "रिकवरी एंट्री की अनुमति नहीं",
+    "No Mob": "मोबाइल नहीं",
+    "WA Due": "WA बकाया",
+    "WhatsApp": "WhatsApp",
+    "Last": "आखिरी",
+    "Open": "खोलें",
+    "Notice": "नोटिस",
+    "Call": "कॉल",
+    "PIN": "PIN",
+    "Urgent": "अर्जेंट",
+    "High": "हाई",
+    "Medium": "मीडियम",
+    "Low": "लो",
+    "Modify recovery": "रिकवरी सुधारें",
+    "Correcting the amount also updates the customer balance.": "राशि सुधारने से ग्राहक बैलेंस भी अपडेट होगा।",
+    "Privacy:": "प्राइवेसी:",
+    "Super Admin cannot view other businesses": "सुपर एडमिन दूसरे बिजनेस का डेटा नहीं देख सकता",
+    "Shop-level data is only for that business's Admin / Staff login.": "शॉप लेवल डेटा सिर्फ उस बिजनेस के Admin / Staff login के लिए है।",
+    "Use Super Dashboard for businesses only.": "बिजनेस के लिए केवल Super Dashboard इस्तेमाल करें।",
+    "View only": "सिर्फ देखें",
+    "View Permission": "देखने की अनुमति",
+    "Modify Permission": "बदलाव की अनुमति",
+    "Delete Permission": "डिलीट अनुमति",
+    "Password changed successfully.": "पासवर्ड सफलतापूर्वक बदल गया।",
+    "Saved successfully.": "सफलतापूर्वक सेव हुआ।",
+    "Updated successfully.": "सफलतापूर्वक अपडेट हुआ।",
+    "Deleted successfully.": "सफलतापूर्वक डिलीट हुआ।",
+    "Created successfully.": "सफलतापूर्वक बनाया गया।",
+    "Restore": "रीस्टोर",
+    "Backup": "बैकअप",
+    "Download": "डाउनलोड",
+    "Upload": "अपलोड",
+    "File": "फाइल",
+    "Size": "साइज",
+    "Created At": "बनने का समय",
+    "Business": "बिजनेस",
+    "Notes": "नोट्स",
+    "Outcome": "परिणाम",
+    "Type": "प्रकार",
+    "Name": "नाम",
+    "Code": "कोड",
+    "City": "शहर",
+    "Start Date": "शुरुआत तारीख",
+    "End Date": "अंत तारीख",
+    "Expiry": "समाप्ति",
+    "Specific": "स्पेसिफिक",
+    "Enabled": "चालू",
+    "Disabled": "बंद",
+    "Expired": "समाप्त",
+    "Unknown": "अज्ञात"
   },
   "gu": {
     "Dashboard": "ડેશબોર્ડ",
@@ -386,7 +493,114 @@
     "View details": "વિગતો જુઓ",
     "Save failed:": "સેવ નિષ્ફળ:",
     "Failed:": "નિષ્ફળ:",
-    "Delete failed:": "ડિલીટ નિષ્ફળ:"
+    "Delete failed:": "ડિલીટ નિષ્ફળ:",
+    "Beyond What’s Due.": "બાકીથી આગળ.",
+    "Loading…": "લોડ થઈ રહ્યું છે…",
+    "Customer *": "ગ્રાહક *",
+    "Contact Number": "સંપર્ક નંબર",
+    "Developed by": "ડેવલપ્ડ બાય",
+    "Minimum 8 characters": "ઓછામાં ઓછા 8 અક્ષર",
+    "30 Minutes": "30 મિનિટ",
+    "Across all businesses": "બધા બિઝનેસમાં",
+    "Active Customers": "એક્ટિવ ગ્રાહકો",
+    "Add Business": "બિઝનેસ ઉમેરો",
+    "Agent code required": "એજન્ટ કોડ જરૂરી છે",
+    "All Businesses": "બધા બિઝનેસ",
+    "All Customers": "બધા ગ્રાહકો",
+    "Business Type": "બિઝનેસ પ્રકાર",
+    "Check your payment status": "તમારું ચુકવણી સ્ટેટસ જુઓ",
+    "Company Name": "કંપની નામ",
+    "Copy link": "લિંક કોપી કરો",
+    "Customers to Contact": "સંપર્ક કરવાના ગ્રાહકો",
+    "Education / Fees": "એજ્યુકેશન / ફી",
+    "Email Address": "ઇમેઇલ સરનામું",
+    "Expiring Soon": "જલ્દી સમાપ્ત",
+    "Finance / Loan": "ફાઇનાન્સ / લોન",
+    "GPS: not captured yet": "GPS હજુ કેપ્ચર થયું નથી",
+    "In progress": "પ્રગતિમાં",
+    "Invalid user": "ખોટો યૂઝર",
+    "Lifetime Collection": "લાઇફટાઇમ કલેક્શન",
+    "No automatic backup status yet.": "હજુ ઓટોમેટિક બેકઅપ સ્ટેટસ નથી.",
+    "No business context.": "બિઝનેસ સંદર્ભ નથી.",
+    "No businesses found": "કોઈ બિઝનેસ મળ્યો નથી",
+    "No records": "કોઈ રેકોર્ડ નથી",
+    "Our system is currently being updated. Please try again shortly.": "અમારું સિસ્ટમ હાલ અપડેટ થઈ રહ્યું છે. કૃપા કરીને થોડી વાર પછી પ્રયત્ન કરો.",
+    "Please select a customer.": "કૃપા કરીને ગ્રાહક પસંદ કરો.",
+    "Printed:": "પ્રિન્ટેડ:",
+    "Real Estate": "રિયલ એસ્ટેટ",
+    "Receipt Number": "રસીદ નંબર",
+    "Registered Customers": "રજિસ્ટર્ડ ગ્રાહકો",
+    "Search Customer": "ગ્રાહક શોધો",
+    "Select Business": "બિઝનેસ પસંદ કરો",
+    "Select Executive": "એક્ઝિક્યુટિવ પસંદ કરો",
+    "Super Admin account cannot be deleted.": "સુપર એડમિન એકાઉન્ટ ડિલીટ થઈ શકતું નથી.",
+    "Today's Follow-up": "આજનું ફોલો-અપ",
+    "Total Amount": "કુલ રકમ",
+    "User not found": "યૂઝર મળ્યો નથી",
+    "Valid mobile number not found. Enter a 10-digit mobile on the customer.": "માન્ય મોબાઇલ નંબર મળ્યો નથી. ગ્રાહકમાં 10 અંકનો મોબાઇલ દાખલ કરો.",
+    "Wholesale / Distribution": "હોલસેલ / ડિસ્ટ્રિબ્યુશન",
+    "Your Administrator has not granted Delete permission.": "તમારા એડમિને ડિલીટ પરમિશન આપી નથી.",
+    "(For aging)": "(એજિંગ માટે)",
+    "(new users start with View only)": "(નવા યૂઝર View onlyથી શરૂ થાય છે)",
+    "(Payment links)": "(પેમેન્ટ લિંક્સ)",
+    "Cloud Backup": "ક્લાઉડ બેકઅપ",
+    "Cloud Restore": "ક્લાઉડ રીસ્ટોર",
+    "Message saved successfully.": "મેસેજ સફળતાપૂર્વક સેવ થયો.",
+    "Customer-wise reports update automatically.": "ગ્રાહક મુજબ રિપોર્ટ આપમેળે અપડેટ થાય છે.",
+    "Dashboard statistics refresh after every recovery.": "દરેક રિકવરી પછી ડેશબોર્ડ આંકડા રિફ્રેશ થાય છે.",
+    "Export reports regularly for backup.": "બેકઅપ માટે રિપોર્ટ નિયમિત એક્સપોર્ટ કરો.",
+    "Reports are generated automatically from saved recovery entries.": "સેવ થયેલી રિકવરી એન્ટ્રીથી રિપોર્ટ આપમેળે બને છે.",
+    "Verify pending balances before finalizing reports.": "રિપોર્ટ ફાઇનલ કરતા પહેલા બાકી બેલેન્સ ચકાસો.",
+    "Recovery entry not allowed": "રિકવરી એન્ટ્રીની મંજૂરી નથી",
+    "No Mob": "મોબાઇલ નથી",
+    "WA Due": "WA બાકી",
+    "WhatsApp": "WhatsApp",
+    "Last": "છેલ્લું",
+    "Open": "ખોલો",
+    "Notice": "નોટિસ",
+    "Call": "કૉલ",
+    "PIN": "PIN",
+    "Urgent": "અર્જન્ટ",
+    "High": "હાઈ",
+    "Medium": "મિડિયમ",
+    "Low": "લો",
+    "Modify recovery": "રિકવરી સુધારો",
+    "Correcting the amount also updates the customer balance.": "રકમ સુધારવાથી ગ્રાહક બેલેન્સ પણ અપડેટ થશે.",
+    "Privacy:": "પ્રાઇવસી:",
+    "Super Admin cannot view other businesses": "સુપર એડમિન બીજા બિઝનેસનો ડેટા જોઈ શકતો નથી",
+    "Shop-level data is only for that business's Admin / Staff login.": "શોપ લેવલ ડેટા ફક્ત તે બિઝનેસના Admin / Staff login માટે છે.",
+    "Use Super Dashboard for businesses only.": "બિઝનેસ માટે ફક્ત Super Dashboard વાપરો.",
+    "View only": "ફક્ત જુઓ",
+    "View Permission": "જોવાની પરમિશન",
+    "Modify Permission": "બદલાવ પરમિશન",
+    "Delete Permission": "ડિલીટ પરમિશન",
+    "Password changed successfully.": "પાસવર્ડ સફળતાપૂર્વક બદલાયો.",
+    "Saved successfully.": "સફળતાપૂર્વક સેવ થયું.",
+    "Updated successfully.": "સફળતાપૂર્વક અપડેટ થયું.",
+    "Deleted successfully.": "સફળતાપૂર્વક ડિલીટ થયું.",
+    "Created successfully.": "સફળતાપૂર્વક બનાવ્યું.",
+    "Restore": "રીસ્ટોર",
+    "Backup": "બેકઅપ",
+    "Download": "ડાઉનલોડ",
+    "Upload": "અપલોડ",
+    "File": "ફાઇલ",
+    "Size": "સાઇઝ",
+    "Created At": "બનાવ્યાનો સમય",
+    "Business": "બિઝનેસ",
+    "Notes": "નોટ્સ",
+    "Outcome": "પરિણામ",
+    "Type": "પ્રકાર",
+    "Name": "નામ",
+    "Code": "કોડ",
+    "City": "શહેર",
+    "Start Date": "શરૂઆત તારીખ",
+    "End Date": "અંત તારીખ",
+    "Expiry": "સમાપ્તિ",
+    "Specific": "સ્પેસિફિક",
+    "Enabled": "ચાલુ",
+    "Disabled": "બંધ",
+    "Expired": "સમાપ્ત",
+    "Unknown": "અજ્ઞાત"
   }
 };
 
@@ -410,38 +624,17 @@
   }
 
   function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\function lookup(value) {
-    const table = dict[lang];
-    if (!table || lang === "en") return value;
-    const raw = normalize(value);
-    if (!raw) return value;
-
-    const punct = raw.match(/^(.+?)([:：])$/);
-    const core = punct ? punct[1].trim() : raw;
-    const suffix = punct ? punct[2] : "";
-
-    let translated = table[raw] || table[core];
-    if (!translated) {
-      const lowerKey = Object.keys(table).find(k => k.toLowerCase() === core.toLowerCase());
-      translated = lowerKey ? table[lowerKey] : "";
-    }
-
-    if (!translated) return value;
-    return preserveCase(core, translated) + suffix;
-  }
-
-  function translateTextNode");
+    return String(value).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
   }
 
   function phraseFallback(raw, table) {
     let out = raw;
     const keys = Object.keys(table)
-      .filter(k => k.length >= 3 && /[A-Za-z]/.test(k))
+      .filter(key => key.length >= 3 && /[A-Za-z]/.test(key))
       .sort((a, b) => b.length - a.length);
     for (const key of keys) {
       if (!out.toLowerCase().includes(key.toLowerCase())) continue;
-      const re = new RegExp(escapeRegExp(key), "gi");
-      out = out.replace(re, match => preserveCase(match, table[key]));
+      out = out.replace(new RegExp(escapeRegExp(key), "gi"), match => preserveCase(match, table[key]));
     }
     return out;
   }
@@ -462,10 +655,9 @@
 
     let translated = table[text] || table[core];
     if (!translated) {
-      const lowerKey = Object.keys(table).find(k => k.toLowerCase() === core.toLowerCase());
+      const lowerKey = Object.keys(table).find(key => key.toLowerCase() === core.toLowerCase());
       translated = lowerKey ? table[lowerKey] : "";
     }
-
     if (translated) return icon + preserveCase(core, translated) + suffix;
 
     const partial = phraseFallback(core, table);
@@ -486,7 +678,7 @@
 
   function translateAttrs(el) {
     if (!el || el.closest(".rx-lang-switch, script, style, noscript, iframe, code, pre")) return;
-    ["placeholder", "title", "aria-label", "value"].forEach(attr => {
+    ["placeholder", "title", "aria-label", "alt", "value"].forEach(attr => {
       if (!el.hasAttribute(attr)) return;
       if (attr === "value" && !["button", "submit", "reset"].includes((el.getAttribute("type") || "").toLowerCase())) return;
 
@@ -502,7 +694,12 @@
 
   function walk(root) {
     if (!root) return;
+    if (root.nodeType === Node.TEXT_NODE) {
+      translateTextNode(root);
+      return;
+    }
     if (root.nodeType === Node.ELEMENT_NODE) translateAttrs(root);
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     let node;
     while ((node = walker.nextNode())) {
