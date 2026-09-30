@@ -536,3 +536,6 @@ async function sbModifyRecovery(id, expectedAmount, payload) {
  if(error)throw error;
  return mapRecoveryFromDb(data);
 }
+
+
+async function sbSetCustomerPortalPin(customerId,pin){const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");const{data,error}=await getSupabase().rpc("app_set_customer_portal_pin",{p_token:token,p_customer_id:customerId,p_pin:pin||""});if(error)throw error;return data;}window.sbSetCustomerPortalPin=sbSetCustomerPortalPin;

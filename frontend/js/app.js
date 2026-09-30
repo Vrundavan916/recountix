@@ -355,6 +355,7 @@ function loadCustomers() {
                 <button onclick="viewCustomer(${index})" title="View">👁</button>
                 <button onclick="editCustomer(${index})" title="Edit">✏️</button>
                 ${waBtn}
+                <button type="button" onclick="setCustomerPortalPin(${index})" title="Set Customer Portal PIN" style="display:inline-flex;align-items:center;gap:4px;background:#0B5D4F;color:#fff;border:none;border-radius:16px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px;">🔐 PIN</button>
                 <button type="button" onclick="openPaymentLinkForCustomer(${index})" title="UPI / Payment link"
                   style="display:inline-flex;align-items:center;gap:4px;background:#1A3D63;color:#fff;border:none;border-radius:16px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px;">₹ Pay</button>
                 <button type="button" onclick="openLegalNoticeForCustomer(${index})" title="Legal / reminder letter"
@@ -403,6 +404,8 @@ function editCustomer(index) {
 
     openModal();
 }
+
+async function setCustomerPortalPin(index){if(!rxRequire("modify"))return;const customer=customers[index];if(!customer||!customer.id){alert("Customer not found.");return;}const pin=prompt("Set customer portal PIN for "+(customer.name||"this customer")+" (minimum 4 characters):");if(pin===null)return;if(String(pin).trim().length<4){alert("PIN must be at least 4 characters.");return;}const confirmPin=prompt("Confirm portal PIN:");if(confirmPin===null)return;if(pin!==confirmPin){alert("PIN does not match.");return;}try{await sbSetCustomerPortalPin(customer.id,pin.trim());alert("Portal PIN saved. Share Business Code + Mobile + PIN with the customer.");}catch(e){console.error(e);alert("PIN save failed: "+(e.message||e));}}
 
 async function deleteCustomer(index) {
     const session = getSession();
