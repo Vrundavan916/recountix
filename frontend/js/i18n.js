@@ -409,7 +409,8 @@
     return translated;
   }
 
-  function lookup(value) {
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\function lookup(value) {
     const table = dict[lang];
     if (!table || lang === "en") return value;
     const raw = normalize(value);
@@ -427,6 +428,49 @@
 
     if (!translated) return value;
     return preserveCase(core, translated) + suffix;
+  }
+
+  function translateTextNode");
+  }
+
+  function phraseFallback(raw, table) {
+    let out = raw;
+    const keys = Object.keys(table)
+      .filter(k => k.length >= 3 && /[A-Za-z]/.test(k))
+      .sort((a, b) => b.length - a.length);
+    for (const key of keys) {
+      if (!out.toLowerCase().includes(key.toLowerCase())) continue;
+      const re = new RegExp(escapeRegExp(key), "gi");
+      out = out.replace(re, match => preserveCase(match, table[key]));
+    }
+    return out;
+  }
+
+  function lookup(value) {
+    const table = dict[lang];
+    if (!table || lang === "en") return value;
+    const raw = normalize(value);
+    if (!raw) return value;
+
+    const leadingIcon = raw.match(/^([✅✔❌💬📍📜📞🔐🔴🟠🟡🟢☁]+)\s*(.+)$/);
+    const icon = leadingIcon ? leadingIcon[1] + " " : "";
+    const text = leadingIcon ? leadingIcon[2] : raw;
+
+    const punct = text.match(/^(.+?)([:：])$/);
+    const core = punct ? punct[1].trim() : text;
+    const suffix = punct ? punct[2] : "";
+
+    let translated = table[text] || table[core];
+    if (!translated) {
+      const lowerKey = Object.keys(table).find(k => k.toLowerCase() === core.toLowerCase());
+      translated = lowerKey ? table[lowerKey] : "";
+    }
+
+    if (translated) return icon + preserveCase(core, translated) + suffix;
+
+    const partial = phraseFallback(core, table);
+    if (partial !== core) return icon + partial + suffix;
+    return value;
   }
 
   function translateTextNode(node) {
