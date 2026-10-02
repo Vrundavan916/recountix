@@ -1045,24 +1045,38 @@
   function refreshSwitch() {
     document.querySelectorAll(".rx-lang-switch button").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.lang === lang);
+      btn.setAttribute("aria-pressed", String(btn.dataset.lang === lang));
     });
   }
 
   function addSwitch() {
+    // Language preferences are available only inside Settings.
+    if (!/\/settings\.html$/i.test(window.location.pathname)) return;
     if (document.querySelector(".rx-lang-switch")) return;
+    const main = document.querySelector("main.main-content");
+    if (!main) return;
+    const section = document.createElement("section");
+    section.className = "table-section fade";
+    section.id = "languagePreferences";
+    section.innerHTML = '<div class="summary-bar"><div><h2>Language</h2><span>Choose Language</span></div></div>';
     const wrap = document.createElement("div");
     wrap.className = "rx-lang-switch";
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute("aria-label", "Language");
     wrap.innerHTML = Object.entries(LANGS)
       .map(([code, label]) => '<button type="button" data-lang="' + code + '">' + label + '</button>')
       .join("");
-    document.body.appendChild(wrap);
+    section.appendChild(wrap);
+    const topbar = main.querySelector(".topbar");
+    if (topbar) topbar.insertAdjacentElement("afterend", section);
+    else main.prepend(section);
 
     const style = document.createElement("style");
     style.textContent = `
-      .rx-lang-switch{position:fixed;right:14px;bottom:14px;z-index:99999;display:flex;gap:4px;padding:5px;background:rgba(255,255,255,.94);border:1px solid rgba(15,23,42,.12);border-radius:999px;box-shadow:0 12px 28px rgba(2,6,23,.16);backdrop-filter:blur(12px)}
-      .rx-lang-switch button{border:0;background:transparent;color:#1A3D63;font-weight:800;font-size:11px;line-height:1;padding:8px 9px;border-radius:999px;cursor:pointer}
+      .rx-lang-switch{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
+      .rx-lang-switch button{border:1px solid #1A3D63;background:transparent;color:#1A3D63;font-weight:700;font-size:14px;padding:10px 18px;border-radius:10px;cursor:pointer}
       .rx-lang-switch button.active{background:#1A3D63;color:#fff}
-      @media (max-width:640px){.rx-lang-switch{right:10px;bottom:10px}.rx-lang-switch button{font-size:10px;padding:7px 8px}}
+      .rx-lang-switch button:focus-visible{outline:3px solid #38bdf8;outline-offset:3px}
     `;
     document.head.appendChild(style);
 
