@@ -76,7 +76,10 @@ if (billInput && downInput) {
 function calculateOutstanding() {
     const bill = parseFloat(document.getElementById("billAmount")?.value) || 0;
     const down = parseFloat(document.getElementById("downPayment")?.value) || 0;
-    let outstanding = Math.max(0, bill - down);
+    const original = editIndex >= 0 ? customers[editIndex] : null;
+    let outstanding = Math.max(0, original
+      ? Number(original.outstanding)+(bill-Number(original.bill))-(down-Number(original.down))
+      : bill-down);
     const outBox = document.getElementById("outstanding");
     if (outBox) outBox.value = outstanding;
 }
@@ -105,6 +108,10 @@ function validateCustomerForm() {
         alert("Please Enter Bill Amount");
         billAmount.focus();
         return false;
+    }
+    const bill=Number(billAmount?.value||0),down=Number(document.getElementById("downPayment")?.value||0);
+    if(!Number.isFinite(bill)||!Number.isFinite(down)||bill<0||down<0||down>bill){
+      alert("Enter valid bill and down payment amounts. Down payment cannot exceed the bill.");return false;
     }
     return true;
 }
@@ -839,6 +846,14 @@ async function saveRecovery() {
     }
 }
 
+function searchRecovery() {
+    const query=(document.getElementById("searchRecovery")?.value||"").trim().toLowerCase();
+    document.querySelectorAll("#recoveryBody tr").forEach(row=>{
+      row.hidden=query!==""&&!row.textContent.toLowerCase().includes(query);
+    });
+}
+window.searchRecovery=searchRecovery;
+
 function loadRecoveryTable() {
     const tbody = document.getElementById("recoveryBody");
     if (!tbody) return;
@@ -872,6 +887,7 @@ function loadRecoveryTable() {
             </td>
         </tr>`;
     });
+    searchRecovery();
 }
 
 async function deleteRecovery(index) {
@@ -1224,13 +1240,9 @@ function formatDate(date) {
     return new Date(date).toLocaleDateString("en-IN");
 }
 
-function backupData() {
-    alert("Data is stored in Supabase cloud.\\nUse Supabase Dashboard → Table Editor for export if needed.");
-}
+function backupData() { window.location.href="backup.html"; }
 
-function restoreData() {
-    alert("Restore is managed via Supabase. Local JSON restore is disabled.");
-}
+function restoreData() { window.location.href="backup.html"; }
 
 function clearAllData() {
     alert("Clear All is disabled. Manage data from Supabase Dashboard or delete records individually.");
@@ -1269,7 +1281,9 @@ async function saveSettings() {
         activeStore.setItem(SESSION_KEYS.username,newUsername);
 
         if(session.shopId){
-            const s=await sbGetSettings(session.shopId);
+            const s={...settings};
+            s.upiId=(document.getElementById("upiId")?.value||"").trim();
+            s.website=(document.getElementById("companyWebsite")?.value||"").trim();
             if(recoveryEmailField)s.recoveryEmail=recoveryEmail;
             await sbSaveSettings(session.shopId,s);
             settings=s;
@@ -1511,6 +1525,8 @@ async function saveCompanyBranding() {
     if(phoneField)settings.phone=phoneField.value.trim();
     if(emailField)settings.email=emailField.value.trim();
     if(addressField)settings.address=addressField.value.trim();
+    settings.upiId=(document.getElementById("upiId")?.value||"").trim();
+    settings.website=(document.getElementById("companyWebsite")?.value||"").trim();
     settings.softwareName="Recountix";
     try{await sbSaveSettings(shopId,settings);alert("Company branding saved.");}
     catch(e){console.error(e);alert("Save failed: "+(e.message||e));}
@@ -1534,7 +1550,7 @@ function fillExecutiveDropdowns(selected) {
     const opts = ['<option value="">Select Executive</option>']
         .concat(list.map(e => {
             const sel = (selected && String(selected) === String(e)) ? " selected" : "";
-            return `<option value="${String(e).replace(/"/g, "&quot;")}"${sel}>${e}</option>`;
+            return `<option value="${appEscape(e)}"${sel}>${appEscape(e)}</option>`;
         }))
         .join("");
     const execSel = document.getElementById("executive");
@@ -1548,7 +1564,7 @@ function fillExecutiveDropdowns(selected) {
         const cur2 = colSel.value;
         colSel.innerHTML = list.map(e => {
             const sel = (cur2 && String(cur2) === String(e)) ? " selected" : "";
-            return `<option value="${String(e).replace(/"/g, "&quot;")}"${sel}>${e}</option>`;
+            return `<option value="${appEscape(e)}"${sel}>${appEscape(e)}</option>`;
         }).join("") || '<option value="">Select</option>';
         if (cur2) colSel.value = cur2;
     }
@@ -1794,6 +1810,9 @@ window.addEventListener("load", async function () {
 
     if (document.getElementById("companyName") && settings.company) {
         document.getElementById("companyName").value = settings.company;
+    }
+    for(const [id,key] of Object.entries({companyMobile:"phone",companyEmail:"email",companyAddress:"address",companyWebsite:"website",upiId:"upiId"})){
+      const field=document.getElementById(id);if(field)field.value=settings[key]||"";
     }
     if (document.getElementById("logoPreview") && settings.logoDataUrl) {
         document.getElementById("logoPreview").src = settings.logoDataUrl;
@@ -2139,7 +2158,7 @@ async function fillPtpCustomerDropdown() {
             sorted.map(c => {
                 const out = Number(c.outstanding || 0);
                 const label = (c.name || "-") + (out ? " (₹" + out.toLocaleString("en-IN") + ")" : "");
-                return '<option value="' + c.id + '" data-out="' + out + '">' + label + "</option>";
+                return '<option value="' + c.id + '" data-out="' + out + '">' + appEscape(label) + "</option>";
             }).join("");
     } catch (e) {
         console.error(e);
@@ -2242,17 +2261,17 @@ async function loadPtpTable() {
             }
             return '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
-                '<td>' + name + '</td>' +
+                '<td>' + appEscape(name) + '</td>' +
                 '<td>₹' + Number(p.promised_amount || 0).toLocaleString("en-IN") + '</td>' +
                 '<td>' + (p.promised_date || "") + '</td>' +
                 '<td><span class="badge ' + badge + '">' + st + '</span></td>' +
-                '<td>' + (p.notes || "—") + '</td>' +
+                '<td>' + appEscape(p.notes || "—") + '</td>' +
                 '<td>' + actions + '</td>' +
                 '</tr>';
         }).join("");
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="7">Error: ' + (e.message || e) + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Error: ' + appEscape(e.message || e) + '</td></tr>';
     }
 }
 
@@ -2579,17 +2598,17 @@ async function loadEscalationsTable() {
             } else actions = "—";
             return `<tr>
               <td>${i + 1}</td>
-              <td>${name}</td>
-              <td>${e.reason || ""}</td>
+              <td>${appEscape(name)}</td>
+              <td>${appEscape(e.reason || "")}</td>
               <td>${e.level || 1}</td>
-              <td>${e.notes || "—"}</td>
-              <td>${e.status || ""}</td>
+              <td>${appEscape(e.notes || "—")}</td>
+              <td>${appEscape(e.status || "")}</td>
               <td style="white-space:nowrap;">${actions}</td>
             </tr>`;
         }).join("");
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="7">Error: ' + (err.message || err) + "</td></tr>";
+        tbody.innerHTML = '<tr><td colspan="7">Error: ' + appEscape(err.message || err) + "</td></tr>";
     }
 }
 
@@ -2699,14 +2718,14 @@ async function loadActivityTable() {
             return `<tr>
               <td>${i + 1}</td>
               <td>${when}</td>
-              <td>${name}</td>
+              <td>${appEscape(name)}</td>
               <td>${a.activity_type || ""}</td>
               <td>${(a.outcome || "") + (a.notes ? (" — " + a.notes) : "")}</td>
               <td>${gps}</td>
             </tr>`;
         }).join("");
     } catch (e) {
-        tbody.innerHTML = "<tr><td colspan='6'>Error: " + (e.message || e) + "</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='6'>Error: " + appEscape(e.message || e) + "</td></tr>";
     }
 }
 
@@ -3071,7 +3090,7 @@ async function loadFieldTracking() {
         }
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = "<tr><td colspan='6'>Error: " + (e.message || e) + "</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='6'>Error: " + appEscape(e.message || e) + "</td></tr>";
     }
 }
 
@@ -3147,7 +3166,7 @@ async function loadEmployeeLinkGenerator() {
     tbody.innerHTML = "<tr><td colspan='5'>Loading…</td></tr>";
     try {
         const users = await sbGetUsers(session.shopId);
-        const list = (users || []).filter(u => u.role !== "super_admin");
+        const list = (users || []).filter(u => u.role === "user");
         if (!list.length) {
             tbody.innerHTML = "<tr><td colspan='5'>No users found. Add a user in Settings or Company Management.</td></tr>";
             return;
@@ -3175,7 +3194,7 @@ async function loadEmployeeLinkGenerator() {
         }).join("");
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = "<tr><td colspan='5'>Error: " + (e.message || e) + "</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='5'>Error: " + appEscape(e.message || e) + "</td></tr>";
     }
 }
 
@@ -3364,7 +3383,7 @@ async function showEmployeeMovementHistory(agentKey, agentLabel) {
 
         try { panel.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {}
     } catch (e) {
-        tbody.innerHTML = "<tr><td colspan='5'>Error: " + (e.message || e) + "</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='5'>Error: " + appEscape(e.message || e) + "</td></tr>";
     }
 }
 
@@ -3433,3 +3452,4 @@ function editRecovery(index) {
  };
  dialog.showModal();
 }
+

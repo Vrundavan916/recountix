@@ -182,7 +182,7 @@ async function sbResetPasswordByRecovery(username,recoveryEmail,newPassword) {
     const {data,error}=await getSupabase().rpc("app_reset_password_by_recovery",{
       p_username:username||"",p_recovery_email:recoveryEmail||"",p_new_password:newPassword||""
     });
-    if(error)throw error;return data;
+    if(error)throw error;if(data&&data.error)throw new Error(data.error);return data;
 }
 window.sbResetPasswordByRecovery=sbResetPasswordByRecovery;
 
@@ -213,7 +213,7 @@ async function sbGetSettings() {
     if(typeof extra==="string"){try{extra=JSON.parse(extra)}catch(e){extra={}}}
     return {company:row.company_name||"",softwareName:"Recountix",phone:row.phone||"",
       email:row.email||"",address:row.address||"",logoDataUrl:row.logo_data_url||"",
-      recoveryEmail:row.recovery_email||"",
+      recoveryEmail:row.recovery_email||"",upiId:extra.upi_id||"",website:extra.website||"",
       executives:Array.isArray(extra.executives)?extra.executives:["Mukesh","Bharat","Office"]};
 }
 
@@ -222,7 +222,7 @@ async function sbSaveSettings(shopId,settingsObj) {
     const {data,error}=await getSupabase().rpc("app_save_settings",{p_token:token,p_payload:{
       company:settingsObj.company||"",phone:settingsObj.phone||"",email:settingsObj.email||"",
       address:settingsObj.address||"",logoDataUrl:settingsObj.logoDataUrl||"",
-      recoveryEmail:settingsObj.recoveryEmail||"",
+      recoveryEmail:settingsObj.recoveryEmail||"",upiId:settingsObj.upiId||"",website:settingsObj.website||"",
       executives:Array.isArray(settingsObj.executives)?settingsObj.executives:[]
     }});
     if(error)throw error;return data;
@@ -539,3 +539,4 @@ async function sbModifyRecovery(id, expectedAmount, payload) {
 
 
 async function sbSetCustomerPortalPin(customerId,pin){const token=getSession().sessionToken;if(!token)throw new Error("Secure session required");const{data,error}=await getSupabase().rpc("app_set_customer_portal_pin",{p_token:token,p_customer_id:customerId,p_pin:pin||""});if(error)throw error;return data;}window.sbSetCustomerPortalPin=sbSetCustomerPortalPin;
+

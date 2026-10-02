@@ -560,38 +560,20 @@ Backup & Restore Project Data
 
 <div class="card blue">
 <i class="fa-solid fa-download"></i>
-<h3>Export Backup</h3>
-<p>Download secure backup file</p>
+<h3>Offline Backup</h3>
+<p>Create or download an encrypted business backup</p>
 <br>
 <button type="button" class="add-btn" onclick="backupData()">
-Download Backup
-</button>
-</div>
-
-<div class="card green">
-<i class="fa-solid fa-cloud-arrow-up"></i>
-<h3>Cloud Backup</h3>
-<p>Save to secure cloud</p>
-<br>
-☁ Cloud Backup
-</button>
-</div>
-
-<div class="card orange">
-<i class="fa-solid fa-cloud-arrow-down"></i>
-<h3>Cloud Restore</h3>
-<p>Restore from secure cloud</p>
-<br>
-☁ Cloud Restore
+Open Offline Backup
 </button>
 </div>
 
 <div class="card blue">
 <i class="fa-solid fa-upload"></i>
 <h3>Restore Backup</h3>
-<p>Import backup file</p>
+<p>Restore missing records from an encrypted backup file</p>
 <br>
-<input type="file" id="restoreFile" accept=".json" onchange="restoreData(event)">
+<a class="add-btn" href="backup.html">Open Backup &amp; Restore</a>
 </div>
 
 <div class="card orange">
@@ -1211,3 +1193,4 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 </body>
 
 </html>
+
