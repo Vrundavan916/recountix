@@ -1,7 +1,7 @@
 /* Recountix encrypted offline backup engine */
 (function(){
 "use strict";
-const DB_NAME="recountix-offline-v1", DB_VERSION=2, STORE_BACKUPS="backups", STORE_KEYS="keys", AUTO_MS=15*60*1000;
+const DB_NAME="recountix-offline-v1", DB_VERSION=2, STORE_BACKUPS="backups", STORE_KEYS="keys";
 function openDb(){
   return new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
@@ -58,12 +58,15 @@ async function openPortable(fileObject,passphrase){
 }
 async function auto(force){
   try{
-    await window.rxPermissionsReady;if(!window.rxCan || !rxCan("backup"))return;
+    await window.rxPreferencesReady;await window.rxPermissionsReady;if(!window.rxCan || !rxCan("backup"))return;
     if(typeof getSession!=="function")return;const s=getSession();if(!s.isLoggedIn||!s.sessionToken||!s.shopId)return;
-    const last=Date.parse(localStorage.getItem("rx_last_backup_"+s.shopId)||0),due=Date.now()-last>=AUTO_MS;
+    if(window.rxPreferencesLoaded===false)return;
+    const schedule=window.rxPreferences?.autoBackup||"daily";
+    if(schedule==="off"){setStatus(s.shopId,"idle","Automatic backup is disabled in Settings.");return;}
+    const interval={daily:86400000,weekly:604800000,monthly:2592000000}[schedule]||86400000;
+    const last=Date.parse(localStorage.getItem("rx_last_backup_"+s.shopId)||0),due=!Number.isFinite(last)||Date.now()-last>=interval;
     if(!navigator.onLine){if(due||isPending(s.shopId)){setPending(s.shopId,true);setStatus(s.shopId,"waiting","Offline — backup will retry automatically.");}return;}
-    if(force&&!due&&!isPending(s.shopId))return;
-    if(!force&&!due)return;
+    if(!due)return;
     await capture(s.shopId);
   }catch(e){console.warn("Offline backup skipped:",e.message||e);}
 }

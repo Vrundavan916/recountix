@@ -213,7 +213,7 @@ async function sbGetSettings() {
     if(typeof extra==="string"){try{extra=JSON.parse(extra)}catch(e){extra={}}}
     return {company:row.company_name||"",softwareName:"Recountix",phone:row.phone||"",
       email:row.email||"",address:row.address||"",logoDataUrl:row.logo_data_url||"",
-      recoveryEmail:row.recovery_email||"",upiId:extra.upi_id||"",website:extra.website||"",
+      preferences:extra.preferences||{},recoveryEmail:row.recovery_email||"",upiId:extra.upi_id||"",website:extra.website||"",
       executives:Array.isArray(extra.executives)?extra.executives:["Mukesh","Bharat","Office"]};
 }
 
@@ -223,7 +223,7 @@ async function sbSaveSettings(shopId,settingsObj) {
       company:settingsObj.company||"",phone:settingsObj.phone||"",email:settingsObj.email||"",
       address:settingsObj.address||"",logoDataUrl:settingsObj.logoDataUrl||"",
       recoveryEmail:settingsObj.recoveryEmail||"",upiId:settingsObj.upiId||"",website:settingsObj.website||"",
-      executives:Array.isArray(settingsObj.executives)?settingsObj.executives:[]
+      ...(settingsObj.preferences?{preferences:settingsObj.preferences}:{}),executives:Array.isArray(settingsObj.executives)?settingsObj.executives:[]
     }});
     if(error)throw error;return data;
 }

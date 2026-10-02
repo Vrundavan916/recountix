@@ -1237,7 +1237,7 @@ function formatCurrency(amount) {
 
 function formatDate(date) {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("en-IN");
+    return window.rxFormatDate ? window.rxFormatDate(date) : new Date(date).toLocaleDateString("en-IN");
 }
 
 function backupData() { window.location.href="backup.html"; }
@@ -1284,9 +1284,11 @@ async function saveSettings() {
             const s={...settings};
             s.upiId=(document.getElementById("upiId")?.value||"").trim();
             s.website=(document.getElementById("companyWebsite")?.value||"").trim();
+            if(window.rxReadPreferences)s.preferences=window.rxReadPreferences();
             if(recoveryEmailField)s.recoveryEmail=recoveryEmail;
             await sbSaveSettings(session.shopId,s);
             settings=s;
+            if(window.rxApplyPreferences)window.rxApplyPreferences(s.preferences);
         }
 
         if(currentPasswordField)currentPasswordField.value="";
@@ -1751,6 +1753,7 @@ async function reloadAllData() {
 
         if (session.shopId) {
             settings = await sbGetSettings(session.shopId);
+            if(window.rxApplyPreferences)window.rxApplyPreferences(settings.preferences);
         }
 
         if (typeof enforceSuperAdminDataPrivacy === "function") enforceSuperAdminDataPrivacy();

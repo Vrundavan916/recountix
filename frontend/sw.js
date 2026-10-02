@@ -1,8 +1,8 @@
-const CACHE_NAME = 'recountix-star-wave-20260928b';
+const CACHE_NAME = 'recountix-preferences-20261002';
 const CORE = [
   './backup.html','./css/recountix-2027.css','./css/style.css','./css/final-suite.css','./css/business-pro.css',
   './js/supabase.js','./js/permissions.js','./js/utils.js','./js/db.js','./js/auth.js',
-  './js/offline-backup.js','./js/backup.js','./assets/logo.png'
+  './js/preferences.js','./js/offline-backup.js','./js/backup.js','./assets/logo.png'
 ];
 
 self.addEventListener('install', event => {

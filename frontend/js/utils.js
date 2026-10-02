@@ -9,7 +9,7 @@ function formatCurrency(amount) {
 function formatDate(date) {
     if (!date) return "-";
     try {
-        return new Date(date).toLocaleDateString("en-IN");
+        return window.rxFormatDate ? window.rxFormatDate(date) : new Date(date).toLocaleDateString("en-IN");
     } catch (e) {
         return String(date);
     }

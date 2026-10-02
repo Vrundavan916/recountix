@@ -587,13 +587,11 @@ Export Data
 </div>
 
 <div class="card red">
-<i class="fa-solid fa-trash"></i>
-<h3>Clear All Data</h3>
-<p>Delete all records (permanent)</p>
+<i class="fa-solid fa-users"></i>
+<h3>Manage Records</h3>
+<p>Review customers and delete individual records with the required permission.</p>
 <br>
-<button type="button" class="add-btn" style="background:#dc2626;" onclick="clearAllData()">
-Delete Data
-</button>
+<a class="add-btn" href="customers.html">Open Customers</a>
 </div>
 
 </div>
@@ -606,7 +604,7 @@ Delete Data
 </div>
 </div>
 <p><strong>Database:</strong> <span id="dbStatusBadge" class="badge badge-warning">Secure Cloud</span></p>
-<p><strong>Last Cloud Backup:</strong> <span id="lastBackupDate">-</span></p>
+<p><strong>Last Device Backup:</strong> <span id="lastBackupDate">-</span></p>
 <p style="margin-top:10px;color:#9CA6B8;font-size:14px;">
 All data is stored on encrypted cloud servers.<code>customers</code>, <code>recoveries</code>, <code>users</code>, <code>settings</code>, <code>backups</code>
 </p>
@@ -760,6 +758,8 @@ System Security Options
 
 </div>
 
+<p style="margin-top:15px;color:#64748b">Auto Logout applies after inactivity. Session Timeout limits the total sign-in duration. Notifications controls the daily recovery summary. Automatic encrypted backups run on this device while the app is open.</p>
+<button type="button" id="savePreferencesButton" class="add-btn" onclick="savePreferences()">Save Preferences</button>
 </section>
 
 <!-- =========================
@@ -1122,10 +1122,10 @@ JAVASCRIPT
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/permissions.js?v=password-reset-1"></script>
-<script src="js/utils.js?v=star-wave-3"></script>
-<script src="js/db.js?v=password-reset-1"></script>
-<script src="js/auth.js?v=password-reset-1"></script>
-<script src="js/app.js?v=password-reset-1"></script>
+<script src="js/utils.js?v=preferences-1"></script>
+<script src="js/db.js?v=preferences-1"></script>
+<script src="js/auth.js?v=password-reset-1"></script><script src="js/preferences.js?v=preferences-1"></script>
+<script src="js/app.js?v=preferences-1"></script>
 <script src="js/company.js?v=star-wave-3"></script>
 <script src="js/excel-import.js"></script>
 
@@ -1188,8 +1188,8 @@ setInterval(function(){
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
 
-<script src="js/final-suite.js?v=rights-1"></script>
-<script src="js/offline-backup.js?v=rights-1"></script><script src="js/i18n.js?v=2"></script>
+<script src="js/final-suite.js?v=preferences-1"></script>
+<script src="js/offline-backup.js?v=preferences-1"></script><script src="js/i18n.js?v=2"></script>
 </body>
 
 </html>

@@ -11,8 +11,10 @@ ctx.window=ctx;vm.createContext(ctx);vm.runInContext(fs.readFileSync('frontend/j
  ctx.calculateOutstanding();assert.equal(fields.outstanding.value,400);
  let called;
  ctx.getSupabase=()=>({rpc:async(name,args)=>{called={name,args};return {data:name==='app_get_settings'?{extra:{upi_id:'audit@upi',website:'https://example.test',executives:[]}}:{},error:null}}});
+ ctx.rxReadPreferences=()=>({autoBackup:"off"});
  const settings=await ctx.sbGetSettings();assert.equal(settings.upiId,'audit@upi');assert.equal(settings.website,'https://example.test');
  await ctx.sbSaveSettings('test-shop',{upiId:'audit@upi',website:'https://example.test'});assert.equal(called.args.p_payload.upiId,'audit@upi');
+ ctx.isSuperAdmin=()=>false;ctx.currentShopId=()=>"test-shop";ctx.alert=()=>{};fields.companyName={value:"Test Company"};await ctx.saveCompanyBranding();assert.equal(called.name,"app_save_settings");
  fields.ptpTableBody={innerHTML:''};fields.ptpStatusFilter={value:'all'};
  vm.runInContext('customers=[{id:"c",name:"<img src=x onerror=alert(1)>"}]',ctx);
  ctx.sbGetPtp=async()=>[{id:'p',customer_id:'c',promised_amount:5,promised_date:'2026-10-02',status:'open',notes:'<script>attack</script>'}];
