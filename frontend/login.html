@@ -277,12 +277,18 @@
       .forgot-link{padding:8px 4px;}
       .btn-primary{min-height:49px;touch-action:manipulation;}
     }
-  </style></head>
+  </style><style>
+/* Keep the brand visible even on short mobile screens. */
+body {height:auto!important;min-height:100svh!important;overflow-y:auto!important;}
+.login-wrap {flex-shrink:0;margin:auto;}
+body .login-wrap .recountix-login-brand {display:flex!important;visibility:visible!important;opacity:1!important;justify-content:center;margin:0 0 20px!important;}
+body .login-wrap .recountix-login-brand img {display:block!important;visibility:visible!important;opacity:1!important;width:min(100%,300px)!important;height:auto!important;max-height:116px;object-fit:contain;}
+</style></head>
 <body>
 
   <div class="login-wrap">
     <div class="brand-row recountix-login-brand">
-      <img src="assets/recountix-logo.png" alt="Recountix — Beyond What’s Due." />
+      <img src="assets/recountix-logo.png?v=login-logo-20261003" loading="eager" decoding="async" alt="Recountix — Beyond What’s Due." />
     </div>
 
     <div class="card login-card">
