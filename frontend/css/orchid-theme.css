@@ -104,3 +104,8 @@ html body .footer-note,html body .secure-note {color:#62566F!important;}
 html body .sidebar-overlay.show {background:#312a4433!important;}
 html body :is(.btn-main,.retry-btn) {background:#312A44!important;color:#F6F2F8!important;border-radius:8px!important;}
 html body :is(.sub,.gps-box,.step,.footer-note,#maintenanceMessage) {color:#62566F!important;}
+/* Remove the legacy card artwork and finish the login palette. */
+html body .login-wrap .login-card::before,html body .login-wrap .login-card::after {content:none!important;}
+html body .login-wrap h1.title {color:#312A44!important;}
+html body .login-wrap :is(.leading,.secure-note i,.login-link) {color:#62566F!important;}
+html body .shell :is(.result,.empty,.history) {background:#F6F2F8!important;color:#62566F!important;border-color:#C9BDCF!important;}
