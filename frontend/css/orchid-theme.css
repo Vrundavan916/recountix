@@ -1,0 +1,107 @@
+/* Recountix Orchid: shared visual layer; existing data and actions stay intact. */
+:root {
+ --orchid:#312A44; --lilac:#88708E; --iris:#BAAAC8; --plum:#D7C5D8; --silver:#DAD4DF;
+ --rx-ink:#312A44; --rx-muted:#62566F; --rx-surface:#F6F2F8; --rx-line:#C9BDCF;
+ --primary:#312A44; --primary-mid:#50405F; --primary-hover:#50405F; --primary-soft:#D7C5D8;
+ --bg:#DAD4DF; --card:#F6F2F8; --text:#312A44; --text-secondary:#62566F; --border:#C9BDCF; --accent:#88708E;
+ --p1n:#312A44; --p1t:#88708E; --p1soft:#D7C5D8; --p1line:#C9BDCF; --p1ink:#312A44; --p1muted:#62566F;
+ --rc-deep:#312A44; --rc-green:#88708E; --rc-accent:#BAAAC8; --rc-line:#C9BDCF;
+ --vo-green:#312A44; --vo-green2:#88708E; --vo-ink:#312A44; --vo-muted:#62566F; --vo-line:#C9BDCF; --vo-soft:#F6F2F8;
+ --recountix:#312A44; --recountix-deep:#312A44; --recountix-accent:#88708E; --recountix-soft:#D7C5D8;
+ --navy-900:#312A44; --navy-700:#312A44; --steel-600:#62566F; --pale-100:#F6F2F8; --pale-200:#D7C5D8;
+ --drawer-v6-bg1:#312A44; --drawer-v6-bg2:#312A44; --sb-bg:#312A44; --sb-bg-2:#312A44;
+}
+html,html body {background:var(--silver)!important;color:var(--rx-ink)!important;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;}
+html body::before,html body::after {content:none!important;}
+html body .wrapper {background:transparent!important;}
+html body .main-content {background:transparent!important;padding:24px 28px!important;min-width:0;}
+html body .sidebar {background:var(--orchid)!important;border-right:1px solid #514460!important;box-shadow:10px 0 35px #312a4426!important;}
+html body .sidebar::before {content:none!important;}
+html body .sidebar .logo {padding:24px 20px!important;border-bottom:1px solid #ffffff20!important;text-align:left!important;}
+html body .sidebar .logo h2 {color:#F6F2F8!important;letter-spacing:-.5px!important;font-size:23px!important;text-transform:none!important;}
+html body .sidebar .logo p {color:#D7C5D8!important;letter-spacing:.03em!important;}
+html body .sidebar .menu a {background:transparent!important;color:#DAD4DF!important;border:1px solid transparent!important;border-radius:8px!important;box-shadow:none!important;min-height:44px;}
+html body .sidebar .menu a i {color:#BAAAC8!important;}
+html body .sidebar .menu a:hover,html body .sidebar .menu a.active {background:#88708E55!important;border-color:#BAAAC840!important;color:#fff!important;transform:none!important;}
+html body .sidebar .menu a.active i {color:#fff!important;}
+html body .sidebar .menu a::before,html body .sidebar .menu a::after {content:none!important;}
+html body .sidebar-overlay {background:#312a4433!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+html body #menuToggle.menu-toggle {background:#312A44!important;color:#F6F2F8!important;border:1px solid #88708E!important;border-radius:8px!important;box-shadow:0 4px 12px #312a4420!important;}
+html body .topbar,html body .header-bar,html body .page-header {background:#312A44!important;border:1px solid #514460!important;border-radius:12px!important;padding:18px 22px!important;box-shadow:0 6px 18px #312a4414!important;backdrop-filter:none!important;}
+html body .topbar h1,html body .topbar .page-title,html body .page-header h1 {color:#F6F2F8!important;font-size:24px!important;letter-spacing:-.5px!important;}
+html body .topbar p,html body .topbar .page-subtitle {color:#D7C5D8!important;}
+html body :is(.card,.content-box,.table-section,.analytics-panel,.vo-command-strip,.vo-today-panel,.vo-final-kpi,.panel,.form-card,.report-card,.settings-card,.summary-card,.stat-card,.rx-nav-card) {background:var(--rx-surface)!important;border:1px solid var(--rx-line)!important;border-radius:12px!important;box-shadow:0 6px 18px #312a440c!important;backdrop-filter:none!important;}
+html body :is(h1,h2,h3,h4,h5,h6) {color:var(--rx-ink)!important;}
+html body :is(label,.subtitle,.page-subtitle,.summary-bar span,.analytics-head p,.card small,.vo-final-kpi span,.vo-command-btn small,.rx-nav-card small) {color:var(--rx-muted)!important;}
+html body .dashboard-grid {gap:16px!important;}
+html body .dashboard-grid .card {min-height:140px!important;padding:20px!important;position:relative!important;}
+html body .dashboard-grid .card::before,html body .dashboard-grid .card::after,html body .vo-final-kpi::after {content:none!important;}
+html body .dashboard-grid .card i {position:absolute!important;right:18px;top:18px;background:#D7C5D8!important;color:#312A44!important;width:34px!important;height:34px!important;border:1px solid #BAAAC8!important;border-radius:8px!important;}
+html body .dashboard-grid .card h3 {font-size:13px!important;max-width:calc(100% - 38px);margin:0 0 20px!important;color:#62566F!important;}
+html body .dashboard-grid .card h1 {font-size:30px!important;letter-spacing:-1px; color:#312A44!important;}
+html body .dashboard-grid .card small {font-size:11px!important;}
+html body .dashboard-grid .card:nth-child(2),html body .dashboard-cards .card:nth-child(2) {background:#D7C5D8!important;}
+html body .dashboard-grid .card:nth-child(3) {background:#e7deeb!important;}
+html body .dashboard-analytics {grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;}
+html body .analytics-head>i,html body .icon-badge,html body .rx-nav-card>i:first-child {background:#D7C5D8!important;color:#312A44!important;border:1px solid #BAAAC8!important;}
+html body .analytics-head .eyebrow,html body .vo-command-title span {color:#62566F!important;}
+html body :is(.vo-command-btn,.rc-view-details,.vo-tool-btn,.btn-secondary,.secondary,.vo-mini-btn,.vo-profile-actions a,.vo-profile-actions button) {background:#e7deeb!important;border:1px solid #BAAAC8!important;color:#312A44!important;border-radius:8px!important;box-shadow:none!important;}
+html body :is(.btn-primary,.add-btn,.save-btn,.submit-btn,.primary,.login-btn,.auth-btn,button[type=submit],.vo-mini-btn.pay) {background:#312A44!important;color:#F6F2F8!important;border:1px solid #312A44!important;border-radius:8px!important;box-shadow:0 4px 12px #312a4418!important;}
+html body button,html body a {transition:background-color .18s ease,box-shadow .18s ease,transform .18s ease!important;}
+html body button:hover,html body .vo-command-btn:hover,html body .rx-nav-card:hover {box-shadow:0 5px 16px #312a4420!important;}
+html body button:active {transform:translateY(1px)!important;}
+html body :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {background:#FCFAFD!important;color:#312A44!important;border:1px solid #BAAAC8!important;border-radius:8px!important;}
+html body :is(input,select,textarea):focus {outline:none!important;border-color:#62566F!important;box-shadow:0 0 0 3px #88708E30!important;}
+html body input::placeholder,html body textarea::placeholder {color:#756680!important;}
+html body input[type=checkbox],html body input[type=radio] {accent-color:#312A44;}
+html body :is(a,button,input,select,textarea):focus-visible {outline:2px solid #88708E!important;outline-offset:3px;}
+html body table {background:#F6F2F8!important;border-color:#C9BDCF!important;border-radius:10px!important;}
+html body table thead th {background:#312A44!important;color:#F6F2F8!important;border-color:#514460!important;font-size:11px!important;letter-spacing:.04em;}
+html body table tbody td {color:#312A44!important;border-color:#DAD4DF!important;}
+html body table tbody tr:nth-child(even) td {background:#eee7f1!important;}
+html body table tbody tr:hover td {background:#D7C5D8!important;}
+html body :is(.modal-content,.vo-profile-card,.vo-profile-body) {background:#F6F2F8!important;border-radius:14px!important;color:#312A44!important;}
+html body .vo-profile-top {background:#312A44!important;color:white!important;}
+html body .vo-profile-top h2 {color:white!important;}
+html body .vo-profile-stat {background:#e7deeb!important;border-color:#BAAAC8!important;}
+html body .rx-live-clock {background:#514460!important;border-color:#88708E!important;border-radius:8px!important;box-shadow:none!important;}
+html body .rx-clock-date {color:#D7C5D8!important;}
+html body .rx-clock-time {color:#F6F2F8!important;}
+html body .rx-clock-glow {display:none!important;}
+html body .login-wrap {max-width:440px;}
+html body .login-card {padding:34px!important;box-shadow:0 20px 50px #312a441a!important;}
+html body .recountix-login-brand {text-align:center;display:block!important;}
+html body .orchid-brand-name {font-size:32px;font-weight:750;letter-spacing:-1px;color:#312A44;}
+html body .orchid-brand-tag {font-size:11px;letter-spacing:.16em;color:#62566F;margin-top:5px;}
+html body .forgot-link,html body .back-link,html body .eye-btn {color:#312A44!important;}
+html body .footer-note,html body .secure-note {color:#62566F!important;}
+@media(min-width:901px) {
+ html body .sidebar,body .wrapper>.sidebar {width:244px!important;transform:none!important;visibility:visible!important;}
+ html body .main-content {margin-left:244px!important;width:calc(100% - 244px)!important;max-width:none!important;}
+ html body #menuToggle.menu-toggle,html body .sidebar-overlay {display:none!important;}
+}
+@media(max-width:1100px) and (min-width:901px) {html body .dashboard-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;} html body .vo-command-grid {grid-template-columns:repeat(3,minmax(0,1fr))!important;}}
+@media(max-width:900px) {
+ html body .main-content {margin-left:0!important;width:100%!important;padding:74px 16px 24px!important;}
+ html body .dashboard-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+ html body .dashboard-analytics {grid-template-columns:1fr!important;}
+ html body .topbar {flex-wrap:wrap;padding:16px!important;gap:12px!important;}
+ html body .sidebar {width:min(86vw,280px)!important;}
+ html body .vo-command-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+@media(max-width:480px) {
+ html body .main-content {padding-left:12px!important;padding-right:12px!important;}
+ html body .dashboard-grid {gap:10px!important;}
+ html body .dashboard-grid .card {padding:14px!important;min-height:145px!important;}
+ html body .dashboard-grid .card h1 {font-size:23px!important;}
+ html body .dashboard-grid .card i {width:26px!important;height:26px!important;right:10px;top:12px;font-size:12px!important;}
+ html body .dashboard-grid .card h3 {font-size:11px!important;}
+ html body .login-card {padding:26px 22px!important;}
+ html body .rx-live-clock {text-align:left;min-width:150px;}
+}
+@media(prefers-reduced-motion:reduce) {html body *,html body *::before,html body *::after {animation:none!important;transition:none!important;}}
+/* Match legacy layout specificity so the desktop rail reserves its space. */
+@media(min-width:901px) {html body .wrapper > main.main-content {margin-left:244px!important;width:calc(100% - 244px)!important;}}
+html body .sidebar-overlay.show {background:#312a4433!important;}
+html body :is(.btn-main,.retry-btn) {background:#312A44!important;color:#F6F2F8!important;border-radius:8px!important;}
+html body :is(.sub,.gps-box,.step,.footer-note,#maintenanceMessage) {color:#62566F!important;}
